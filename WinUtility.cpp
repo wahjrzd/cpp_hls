@@ -45,6 +45,7 @@ std::basic_string<BYTE> WinUtility::Base64Decode(const char* data, DWORD sz)
 		BYTE* p = new BYTE[dwRet];
 		CryptStringToBinary(str.c_str(), str.size(), CRYPT_STRING_BASE64, p, &dwRet, nullptr, nullptr);
 		bs.append(p, dwRet);
+		delete p;
 	}
 	return bs;
 }
