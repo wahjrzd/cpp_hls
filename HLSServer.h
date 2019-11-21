@@ -9,12 +9,13 @@
 #endif
 
 #include <http.h>
-#include <string>
+//#include <string>
 #include <map>
+#include <cpprest/http_listener.h>
 
 const std::string textHtml = "text/html";
 const std::string appMpegUrl = "application/x-mpegURL";
-const std::string videoMP2T = "video/MP2T";
+const utility::string_t videoMP2T = U("video/MP2T");
 const std::string OK = "OK";
 const std::string NotFound = "Not Found";
 
@@ -36,28 +37,23 @@ public:
 	void Start();
 	void Stop();
 private:
-	DWORD SendHttpResponse(PHTTP_REQUEST req, USHORT StatusCode, std::string& pReason, std::string& EntityString);
-
-	DWORD SendM3U8Response(PHTTP_REQUEST req, const std::string& m3u8);
-	DWORD SendTSResponse(PHTTP_REQUEST req, const std::string& fn, const std::string& sessionID);
+	void HandeHttpGet(web::http::http_request msg);
 
 	void ParseUrl(const std::string& url, std::string& streamID, std::string& fn, std::string& uuid);
 private:
-	static void __cdecl StaticTask(void* arg);
-	void RequestTask(PHTTP_REQUEST request);
-
 	static unsigned __stdcall StaticCheck(void* arg);
 	unsigned WrapCheck();
+
 private:
 	HANDLE m_checkThr;
 	HANDLE m_checkEvent;
 private:
-	HANDLE m_reqQueue;
+	web::http::experimental::listener::http_listener* m_pListener;
+
 	unsigned short m_port;
 	std::wstring m_ip;
 
-	std::wstring m_uri;
-	std::wstring m_queueName;
+	utility::string_t m_uri;
 private:
 	CRITICAL_SECTION m_disLock;
 	std::map<std::string, StreamDistribution*> m_distributions;

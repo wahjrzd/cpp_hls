@@ -92,11 +92,13 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>$(SolutionDir)\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <AdditionalLibraryDirectories>$(SolutionDir)\lib\debug</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -181,7 +183,7 @@
     <ClCompile Include="RtspClient\RtpUnpacket.cpp" />
     <ClCompile Include="RtspClient\RtspClient.cpp" />
     <ClCompile Include="RtspClient\SdpParse.cpp" />
-    <ClCompile Include="SimpleHls.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="StreamDistribution.cpp" />
     <ClCompile Include="TsPacker.cpp" />
     <ClCompile Include="WinUtility.cpp" />

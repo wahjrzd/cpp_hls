@@ -22,7 +22,7 @@ std::string M3U8Client::GetM3U8()
 	EnterCriticalSection(&m_tsLock);
 	if (m_m3u8Info.empty())
 	{
-		if (!SleepConditionVariableCS(&m_tsCondition, &m_tsLock, 6000))
+		if (!SleepConditionVariableCS(&m_tsCondition, &m_tsLock, 7000))
 			fprintf(stderr, "SleepConditionVariableCS failed:%u\n", GetLastError());
 	}
 	

@@ -4,8 +4,8 @@
 #include "pch.h"
 #include "HLSServer.h"
 
-#pragma comment(lib,"Httpapi.lib")
-#pragma comment(lib,"ws2_32.lib")
+#pragma comment(lib, "cpprest_2_10d.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 int main()
 {
@@ -29,7 +29,9 @@ int main()
 	unsigned short port = GetProfileInt(L"Server", L"port", 8123);
 	HLSServer hls(ip, port);
 	hls.Start();
-
+	std::string line;
+	std::getline(std::cin, line);
+	hls.Stop();
 
 	WSACleanup();
 	return 0;
