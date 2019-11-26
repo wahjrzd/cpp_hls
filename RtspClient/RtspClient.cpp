@@ -263,7 +263,8 @@ unsigned int RtspClient::WrapHandleData()
 				fResponseBytesAlreadySeen += ret;
 				fResponseBufferBytesLeft -= ret;
 
-				HandleRtpData();
+				if (HandleRtpData() != 0)
+					break;
 			}
 		}
 	}
@@ -331,11 +332,26 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 				if (sdp.GetMedia("video", m))
 				{
 					fVideoControlPath = m.Attributes["control"];
+					auto rtpmap = m.Attributes["rtpmap"];
+					char p1[32];
+					char p2[32];
+					char p3[32];
+					if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]", p1, p2, p3) == 3)
+						rtp->SetVideoCodecType(p2);
+
 					hasVideo = true;
 				}
 				if (sdp.GetMedia("audio", m))
 				{
 					fAudioControlPath = m.Attributes["control"];
+					auto rtpmap = m.Attributes["rtpmap"];
+					
+					char p1[32];
+					char p2[32];
+					char p3[32];
+					if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]", p1, p2, p3) == 3)
+						rtp->SetAudioCodecType(p2);
+
 					hasAudio = true;
 				}
 			}
@@ -503,8 +519,7 @@ unsigned int RtspClient::HandleRtpData()
 {
 	if (fResponseBuffer[0] != 0x24)//maybe a cmd
 	{
-		HandleCmdData(0);
-		return 0;
+		return HandleCmdData(0);
 	}
 
 	int nChannel = fResponseBuffer[1];
@@ -521,7 +536,7 @@ unsigned int RtspClient::HandleRtpData()
 	{
 		unsigned char* p = (unsigned char*)fResponseBuffer + 4;
 
-		rtp->InputRtpData(p, sz);
+		rtp->InputRtpData(p, sz, "video");
 	}
 	else if (nChannel == vRTCP)
 	{
@@ -530,6 +545,7 @@ unsigned int RtspClient::HandleRtpData()
 	else if (nChannel == aRTP)
 	{
 		unsigned char* p = (unsigned char*)fResponseBuffer + 4;
+		rtp->InputRtpData(p, sz, "audio");
 	}
 	else if (nChannel == aRTCP)
 	{
