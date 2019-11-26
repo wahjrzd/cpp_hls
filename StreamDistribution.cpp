@@ -1,14 +1,11 @@
 #include "StreamDistribution.h"
 #include "RtspClient/RtspClient.h"
 #include <iostream>
-#include <process.h>
 #include "WinUtility.h"
 #include "M3U8Client.h"
 #include <time.h>
 
-StreamDistribution::StreamDistribution(const std::string& id, std::string& url) :m_streamSourceThr(NULL),
-m_checkThr(NULL),
-pstream(nullptr),
+StreamDistribution::StreamDistribution(const std::string& id, std::string& url) :pstream(nullptr),
 m_uri(url),
 m_streamID(id),
 m_index(0)
@@ -16,14 +13,14 @@ m_index(0)
 	InitializeCriticalSection(&m_clientLock);
 	InitializeCriticalSection(&m_frameLock);
 	InitializeConditionVariable(&m_frameCondition);
-	
+
 	m_dir = WinUtility::AnisToUnicode(id.c_str(), id.size());
 	m_dir.push_back('/');
 
 	pPacker = new TsPacker(m_dir);
 	pPacker->SetCallback(tscb, this);
 
-	m_header = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-ALLOW-CACHE:NO\n#EXT-X-TARGETDURATION:4\n";
+	m_header = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-ALLOW-CACHE:NO\n#EXT-X-TARGETDURATION:2\n";
 
 	m_checkEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 }
@@ -43,19 +40,13 @@ StreamDistribution::~StreamDistribution()
 	m_frames.push(f);
 	WakeConditionVariable(&m_frameCondition);
 
-	if (m_streamSourceThr)
-	{
-		WaitForSingleObject(m_streamSourceThr, INFINITE);
-		CloseHandle(m_streamSourceThr);
-	}
+	if (m_packetFuture.valid())
+		m_packetFuture.get();
 
 	SetEvent(m_checkEvent);
 
-	if (m_checkThr)
-	{
-		WaitForSingleObject(m_checkThr, INFINITE);
-		CloseHandle(m_checkThr);
-	}
+	if (m_checkFuture.valid())
+		m_checkFuture.get();
 
 	while (!m_tsFiles.empty())
 	{
@@ -98,25 +89,16 @@ int StreamDistribution::Run()
 		}
 	}
 
-	if (m_streamSourceThr == NULL)
+	if (!m_packetFuture.valid())
 	{
-		m_streamSourceThr = (HANDLE)_beginthreadex(nullptr, 0, StaticPacket, this, 0, nullptr);
-		if (m_streamSourceThr == NULL)
-		{
-			fprintf(stderr, "_beginthreadex failed:%u\n", GetLastError());
-			return 2;
-		}
+		m_packetFuture = std::async(&StreamDistribution::WrapPacket, this);
+	}
+	
+	if (!m_checkFuture.valid())
+	{
+		m_checkFuture = std::async(&StreamDistribution::WrapCheck, this);
 	}
 
-	if (m_checkThr == NULL)
-	{
-		m_checkThr = (HANDLE)_beginthreadex(nullptr, 0, StaticCheck, this, 0, nullptr);
-		if (m_checkThr == NULL)
-		{
-			fprintf(stderr, "_beginthreadex failed:%u\n", GetLastError());
-			return 3;
-		}
-	}
 	return 0;
 }
 
@@ -134,12 +116,6 @@ unsigned StreamDistribution::wrapRawCB(FrameInfo& f)
 
 	WakeConditionVariable(&m_frameCondition);
 	return 0;
-}
-
-unsigned __stdcall StreamDistribution::StaticPacket(void* arg)
-{
-	StreamDistribution* p = (StreamDistribution*)arg;
-	return p->WrapPacket();
 }
 
 unsigned StreamDistribution::WrapPacket()
@@ -235,12 +211,6 @@ size_t StreamDistribution::GetClientCount()
 	count = m_clients.size();
 	LeaveCriticalSection(&m_clientLock);
 	return count;
-}
-
-unsigned __stdcall StreamDistribution::StaticCheck(void* arg)
-{
-	StreamDistribution* p = (StreamDistribution*)arg;
-	return p->WrapCheck();
 }
 
 unsigned StreamDistribution::WrapCheck()

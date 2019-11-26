@@ -1,7 +1,6 @@
 #include "RtspClient.h"
 #include <iostream>
 #include <sstream>
-#include <process.h>
 #include <WS2tcpip.h>
 #include <vector>
 #include "SdpParse.h"
@@ -11,7 +10,6 @@
 RtspClient::RtspClient() :fResponseBuffer(nullptr), fResponseBytesAlreadySeen(0),
 fResponseBufferBytesLeft(20000),
 m_cli(INVALID_SOCKET),
-m_handleThr(NULL),
 m_currentCmd("DESCRIBE"),
 fSeq(1),
 hasVideo(false),
@@ -25,16 +23,11 @@ sendAudioSetup(false)
 
 RtspClient::~RtspClient()
 {
-	std::cout << "rtsp client deconstructed" << std::endl;
-	
+	if (m_dataHandleFuture.valid())
+		m_dataHandleFuture.get();
+
 	if (m_cli != INVALID_SOCKET)
 		closesocket(m_cli);
-
-	if (m_handleThr != NULL)
-	{
-		WaitForSingleObject(m_handleThr, INFINITE);
-		CloseHandle(m_handleThr);
-	}
 
 	delete fResponseBuffer;
 
@@ -57,15 +50,11 @@ bool RtspClient::OpenRtsp(const char* url)
 	}
 
 	ConnectServer(host.c_str(), port);
-   
+
+	m_dataHandleFuture = std::async(&RtspClient::WrapHandleData, this);
+
 	SendRequest(m_currentCmd, fBaseUrl);
 
-	m_handleThr = (HANDLE)_beginthreadex(nullptr, 0, StaticHandleData, this, 0, nullptr);
-	if (m_handleThr == NULL)
-	{
-		fprintf(stderr, "_beginthreadex failed:%u\n", GetLastError());
-		return false;
-	}
 	return true;
 }
 
@@ -241,12 +230,6 @@ void RtspClient::SendRequest(const std::string cmd, const std::string& url, int 
 		fprintf(stderr, "send failed:%d\n", WSAGetLastError());
 }
 
-unsigned int __stdcall RtspClient::StaticHandleData(void* arg)
-{
-	RtspClient* p = (RtspClient*)arg;
-	return p->WrapHandleData();
-}
-
 unsigned int RtspClient::WrapHandleData()
 {
 	fd_set rf;
@@ -271,7 +254,10 @@ unsigned int RtspClient::WrapHandleData()
 				break;
 			}
 			if (fResponseBuffer[0] != 0x24)
-				HandleCmdData(ret);
+			{
+				if (HandleCmdData(ret) != 0)
+					break;
+			}
 			else
 			{
 				fResponseBytesAlreadySeen += ret;
@@ -424,6 +410,8 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 					SendRequest(m_currentCmd, fBaseUrl);
 				}
 			}
+			else if (m_currentCmd == "TEARDOWN")
+				return 1;
 			
 		}
 		else
@@ -513,11 +501,10 @@ void RtspClient::parseWWWAuth(const std::string& str, std::string& _realm, std::
 
 unsigned int RtspClient::HandleRtpData()
 {
-	if (fResponseBuffer[0] != 0x24)
+	if (fResponseBuffer[0] != 0x24)//maybe a cmd
 	{
-		fResponseBytesAlreadySeen = 0;
-		fResponseBufferBytesLeft = 20000;
-		std::cout << "abcd" << std::endl;
+		HandleCmdData(0);
+		return 0;
 	}
 
 	int nChannel = fResponseBuffer[1];
@@ -574,5 +561,8 @@ unsigned int RtspClient::HandleRtpData()
 void RtspClient::Stop()
 {
 	if (m_cli != INVALID_SOCKET)
-		SendRequest("TEARDOWN", fBaseUrl);
+	{
+		m_currentCmd = "TEARDOWN";
+		SendRequest(m_currentCmd, fBaseUrl);
+	}
 }

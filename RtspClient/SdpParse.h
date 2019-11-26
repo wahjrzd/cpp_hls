@@ -26,7 +26,7 @@ public:
 	bool GetMedia(const std::string& Type, Media& m);
 private:
 	std::vector<std::string> SplitString(const std::string& src, char delim = ' ');
-	void GetMedia(std::stringstream& ss, std::string& line);
+	void GetMediaInfo(std::stringstream& ss, std::string& line);
 private:
 	int version;
 	std::string name;

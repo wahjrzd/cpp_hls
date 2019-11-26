@@ -1,11 +1,16 @@
-﻿// SimpleHls.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+﻿// main.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
 #include "pch.h"
 #include "HLSServer.h"
 
-#pragma comment(lib, "cpprest_2_10d.lib")
-#pragma comment(lib, "ws2_32.lib")
+#ifdef _DEBUG
+#pragma comment(lib,"cpprest_2_10d.lib")
+#else
+#pragma comment(lib,"cpprest_2_10.lib")
+#endif
+
+#pragma comment(lib,"ws2_32.lib")
 
 int main()
 {
@@ -26,7 +31,8 @@ int main()
 	GetPrivateProfileString(L"Server", L"ip", L"127.0.0.1", path, MAX_PATH, cfgPath.c_str());
 	
 	std::wstring ip = path;
-	unsigned short port = GetProfileInt(L"Server", L"port", 8123);
+	
+	unsigned short port = GetPrivateProfileInt(L"Server", L"port", 8123, cfgPath.c_str());
 	HLSServer hls(ip, port);
 	hls.Start();
 	std::string line;

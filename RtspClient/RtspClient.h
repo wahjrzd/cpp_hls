@@ -2,6 +2,7 @@
 #include <WinSock2.h>
 #include "Authenticator.h"
 #include <map>
+#include <future>
 #include "RtpUnpacket.h"
 
 struct ResponseInfo
@@ -33,7 +34,6 @@ private:
 
 	void parseWWWAuth(const std::string& str, std::string& _realm, std::string& _nonce);
 
-	static unsigned int __stdcall StaticHandleData(void* arg);
 	unsigned int WrapHandleData();
 
 	unsigned int HandleCmdData(int newBytesRead);
@@ -64,6 +64,6 @@ private:
 	RtpUnpacket* rtp;
 private:
 	SOCKET m_cli;
-	HANDLE m_handleThr;
+	std::future<unsigned int> m_dataHandleFuture;
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <queue>
 #include "TsPacker.h"
+#include <atomic>
 
 class M3U8Client
 {
@@ -10,15 +11,20 @@ public:
 
 	int HasNewM3U8Coming(const std::string& info);
 
-	std::string GetM3U8();
+	//int HasNewTsComing(TsFileInfo& info);
 
+	std::string GetM3U8();
+	 
 	long long GetUpdateTime();
 	void UpdateUpdateTime(long long t);
 private:
 	std::string m_sessionID;
-	volatile long long  m_updateTime;
+	std::atomic_int64_t m_updateTime;
 	CONDITION_VARIABLE m_tsCondition;
 	CRITICAL_SECTION m_tsLock;
 	std::queue<std::string> m_m3u8Info;
+
+	//std::string m_a[3];
+	//int is = 0;
 };
 

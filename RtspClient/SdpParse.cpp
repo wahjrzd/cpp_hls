@@ -24,7 +24,7 @@ int SdpParse::parse(const std::string& msg)
 		line.pop_back();
 		if (strncmp(line.c_str(), "m=", 2) == 0)
 		{
-			GetMedia(ss, line);
+			GetMediaInfo(ss, line);
 		}
 	}
 	
@@ -65,18 +65,18 @@ std::vector<std::string> SdpParse::SplitString(const std::string& src, char deli
 	return v;
 }
 
-void SdpParse::GetMedia(std::stringstream& ss, std::string& line)
+void SdpParse::GetMediaInfo(std::stringstream& ss, std::string& line)
 {
 	Media m;
 	auto infos = SplitString(std::string(line.c_str() + 2));
 	if (infos.size() >= 4)
 	{
 		auto it = infos.begin();
-		m.Type = *it;
+		m.Type = *it;//video
 		++it;
 		m.port = std::stoi(*it);
 		++it;
-		m.Protocol = *it;
+		m.Protocol = *it;//RTP/AVP
 		++it;
 		while (it != infos.end())
 		{
@@ -105,7 +105,7 @@ void SdpParse::GetMedia(std::stringstream& ss, std::string& line)
 		}
 		else if (strncmp(line.c_str(), "m=", 2) == 0)
 		{
-			GetMedia(ss, line);
+			GetMediaInfo(ss, line);
 		}
 		else if (line.empty())
 			break;

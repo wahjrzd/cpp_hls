@@ -3,6 +3,7 @@
 #include <queue>
 #include "RtspClient/RtpUnpacket.h"
 #include "TsPacker.h"
+#include <future>
 
 class RtspClient;
 class M3U8Client;
@@ -22,13 +23,11 @@ private:
 	static unsigned rawcb(FrameInfo& f, void* arg);
 	unsigned wrapRawCB(FrameInfo& f);
 
-	static unsigned __stdcall StaticPacket(void* arg);
 	unsigned WrapPacket();
 
 	static unsigned tscb(TsFileInfo& f, void *arg);
 	unsigned wrapTSCB(TsFileInfo& f);
 
-	static unsigned __stdcall StaticCheck(void* arg);
 	unsigned WrapCheck();
 private:
 	RtspClient* pstream;
@@ -38,13 +37,13 @@ private:
 	TsPacker* pPacker;
 	std::wstring m_dir;
 private:
-	HANDLE m_checkThr;
+	std::future<unsigned int> m_checkFuture;
 	HANDLE m_checkEvent;
 private:
 	CRITICAL_SECTION m_clientLock;
 	std::map<std::string, M3U8Client*> m_clients;
-	HANDLE m_streamSourceThr;
 
+	std::future<unsigned int> m_packetFuture;
 	CRITICAL_SECTION m_frameLock;
 	CONDITION_VARIABLE m_frameCondition;
 	std::queue<FrameInfo> m_frames;

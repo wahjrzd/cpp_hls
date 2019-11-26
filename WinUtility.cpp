@@ -30,6 +30,7 @@ std::string WinUtility::Base64Encode(const BYTE* data, DWORD sz)
 		WCHAR* p = new WCHAR[dwRet];
 		CryptBinaryToString(data, sz, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, p, &dwRet);
 		retStr = UnicodeToAnsi(p, dwRet);
+		delete p;
 	}
 	return retStr;
 }
@@ -150,7 +151,7 @@ std::string WinUtility::CreateXID()
 	id[8] = pid & 0xff;
 
 	std::default_random_engine e;
-	e.seed(now.QuadPart);
+	e.seed(static_cast<unsigned int>(now.QuadPart));
 
 	auto i = e();
 	id[9] = (i >> 16) & 0xff;
