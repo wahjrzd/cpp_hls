@@ -9,6 +9,7 @@ const std::string appMpegUrl = "application/x-mpegURL";
 const utility::string_t videoMP2T = U("video/MP2T");
 
 class StreamDistribution;
+class Config;
 
 class HLSServer
 {
@@ -30,7 +31,7 @@ private:
 	HANDLE m_checkEvent;
 private:
 	web::http::experimental::listener::http_listener* m_pListener;
-
+	Config* m_pCfg;
 	unsigned short m_port;
 	std::wstring m_ip;
 	

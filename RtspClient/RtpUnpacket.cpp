@@ -1,7 +1,7 @@
 #include "RtpUnpacket.h"
 #include <iostream>
 
-RtpUnpacket::RtpUnpacket() :t(0), naluType(0),
+RtpUnpacket::RtpUnpacket() : naluType(0),
 pUsr(nullptr), m_cb(nullptr),
 m_videoCodec("H264"),
 m_audioCodec("PCMU")
@@ -29,19 +29,15 @@ int RtpUnpacket::InputRtpData(unsigned char* data, unsigned short sz, const std:
 	{
 		if (m_videoCodec == "H264")
 			ParseAVCRTP(data + 12, sz - 12, timeStamp, mark == 0 ? false : true);
-		else if (m_videoCodec == "H265")
+		else if (_strcmpi(m_videoCodec.c_str(), "H265") == 0)
 			ParseHEVCRTP(data + 12, sz - 12, timeStamp, mark == 0 ? false : true);
 	}
 	else if (type == "audio")
 	{
 		if (m_audioCodec == "PCMU" || m_audioCodec == "PCMA")
-		{
 			ParseG711RTP(data + 12, sz - 12, timeStamp, mark == 0 ? false : true);
-		}
-		else if (m_audioCodec == "MPEG4-GENERIC")
-		{
+		else if (_strcmpi(m_audioCodec.c_str(), "MPEG4-GENERIC") == 0)
 			ParseAACRTP(data + 12, sz - 12, timeStamp, mark == 0 ? false : true);
-		}
 		else
 		{
 			//TODO
@@ -88,9 +84,9 @@ int RtpUnpacket::ParseAVCRTP(unsigned char* data, unsigned short sz, unsigned in
 		if (m_cb)
 		{
 			FrameInfo ff;
-			ff.mediaType = "video";
 			ff.data = frameData;
 			ff.timeStamp = timeStamp / 90;
+			ff.samplingRate = m_videoSampleRate;
 			ff.frameType = naluType;
 
 			m_cb(ff, pUsr);
@@ -116,8 +112,10 @@ int RtpUnpacket::ParseG711RTP(unsigned char* data, unsigned short sz, unsigned i
 		{
 			FrameInfo ff;
 			ff.mediaType = "audio";
+			ff.codecType = m_audioCodec;
 			ff.data = frameData;
-			ff.timeStamp = timeStamp / 8;
+			ff.timeStamp = timeStamp / (m_audioSampleRate / 1000);
+			ff.samplingRate = m_audioSampleRate;
 
 			m_cb(ff, pUsr);
 		}
@@ -127,6 +125,12 @@ int RtpUnpacket::ParseG711RTP(unsigned char* data, unsigned short sz, unsigned i
 	return 0;
 }
 
+static unsigned const samplingFrequencyFromIndex[16] = {
+  96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050,
+  16000, 12000, 11025, 8000, 7350, 0, 0, 0
+};
+
+
 int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned int timeStamp, bool mark)
 {
 	frameData.append(data, sz);
@@ -134,10 +138,55 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 	{
 		if (m_cb)
 		{
-			auto a = data[0];
-			auto b = data[1];
-			auto c = data[2];
-			auto d = data[3];
+			//adts header               bits       
+			//syncword 12                 12 FFF
+			//id                           1 0:mpeg4 1:mpeg2
+			//layer                        2 00
+			//protection_absend            1 1(no crc) 0(crc)  fff1
+			//profile                      2 01
+			//sampling_frequecny_index     4 1000 
+			//private_bit                  1 0
+			//channel_configuration        3 1   60
+			//original_copy                1 0
+			//home                         1 0
+			//copyright                    1 0
+			//copyright start              1 0   40
+			//framelength                 13 
+			//buffer fullness             11 11111111111
+			//number of aacframe minus 1   2 00
+			//https://wiki.multimedia.cx/index.php?title=ADTS
+			unsigned char ADTS[] = { 0xFF, 0xF1, 0x00, 0x00, 0x00, 0x00, 0xFC };
+			switch (m_audioSampleRate)
+			{
+			case 16000:
+				ADTS[2] = 0x60; break;//main profile(1)  sampling_frequecny_index 8
+			case 32000:
+				ADTS[2] = 0x54; break;
+			case 48000:
+				ADTS[2] = 0x4c; break;
+			case 64000:
+				ADTS[2] = 0x48; break;
+			default:
+				break;
+			}
+		
+			ADTS[3] = (m_soundTrack == 2) ? 0x80 : 0x40;//soundtrack 1
+			int len = sz - 2 + 7;
+			//                                     4     len 5      6 
+			ADTS[4] = (len & 0xfff8) >> 3;//00 1111 1111 111 1 1111 1111 1100
+			ADTS[5] = (len << 5) | 0x1F;//µÍÈýÎ»
+
+			if (data[0] != 0x00 && data[1] != 0x10)
+				std::cerr << "correct aac stream" << std::endl;
+			
+			FrameInfo ff;
+			ff.mediaType = "audio";
+			ff.codecType = m_audioCodec;
+			ff.data.append(ADTS, 7);
+			ff.data.append(frameData.c_str() + 2, frameData.size() - 2);
+			ff.timeStamp = timeStamp;
+
+			m_cb(ff, pUsr);
 		}
 		frameData.clear();
 	}

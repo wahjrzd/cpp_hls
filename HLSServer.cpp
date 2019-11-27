@@ -4,6 +4,7 @@
 #include "WinUtility.h"
 #include "M3U8Client.h"
 #include <cpprest/filestream.h>
+#include "Config.h"
 
 #pragma warning(disable:4996)
 
@@ -17,6 +18,7 @@ HLSServer::HLSServer(const std::wstring& ip, unsigned short port) : m_port(port)
 	InitializeCriticalSection(&m_disLock);
 	
 	m_checkEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	m_pCfg = new Config();
 }
 
 
@@ -35,10 +37,16 @@ HLSServer::~HLSServer()
 
 	CloseHandle(m_checkEvent);
 	DeleteCriticalSection(&m_disLock);
+
+	delete m_pCfg;
 }
 
 void HLSServer::Start()
 {
+	m_pCfg->LoadConfig("config.json");
+	m_ip = m_pCfg->_ip;
+	m_port = m_pCfg->port;
+
 	try
 	{
 		m_pListener->support(web::http::methods::GET, std::bind(&HLSServer::HandeHttpGet, this, std::placeholders::_1));
@@ -78,8 +86,8 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 			{
 				if (uuid.empty())
 				{
-					std::string url = "rtsp://admin:admin@25.30.9.45:554/cam/realmonitor?channel=1&subtype=0";
-
+					//std::string url = "rtsp://admin:admin@25.30.9.45:554/cam/realmonitor?channel=1&subtype=0";
+					std::string url = "rtsp://admin:12qwaszx@25.30.9.129:554/h264/ch1/main/av_stream";
 					uuid = WinUtility::CreateXID();
 					EnterCriticalSection(&m_disLock);
 					auto it = m_distributions.find(streamid);
@@ -124,7 +132,7 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 					else
 						msg.reply(web::http::status_codes::OK, info, appMpegUrl);
 					//web::json::value v;
-				
+					
 				}
 			}
 			else if (fn.substr(pos) == ".ts")
@@ -208,7 +216,7 @@ unsigned int HLSServer::WrapCheck()
 				{
 					delete it->second;
 					it = m_distributions.erase(it);
-					printf("remove distribution\n");
+					std::clog << "remove distribution" << std::endl;
 					continue;
 				}
 				++it;

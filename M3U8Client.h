@@ -16,6 +16,12 @@ public:
 	std::string GetM3U8();
 	 
 	long long GetUpdateTime();
+
+	const std::string GetSessionID()
+	{
+		return m_sessionID;
+	}
+
 	void UpdateUpdateTime(long long t);
 private:
 	std::string m_sessionID;

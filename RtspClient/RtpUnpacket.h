@@ -7,14 +7,20 @@
 
 struct FrameInfo
 {
-	std::string mediaType;
 	unsigned char frameType;
-	std::basic_string<unsigned char> data;
-	unsigned int timeStamp;
+	unsigned int timeStamp;//时间戳
+	unsigned int samplingRate;//采样率
 	int reserver;
+	std::string mediaType;//video or audio
+	std::string codecType;//编码类型
+	std::basic_string<unsigned char> data;//media data
 	FrameInfo()
 	{
 		frameType = 0;
+		timeStamp = 0;
+		samplingRate = 0;
+		mediaType = "video";
+		codecType = "H264";
 	}
 };
 
@@ -30,26 +36,35 @@ public:
 
 	void SetRawCallback(RawCallback cb, void* usr);
 
-	void SetVideoCodecType(const std::string& _type)
+	void SetVideoCodecInfo(const std::string& _type, unsigned int _samplingRate = 900000)
 	{
 		m_videoCodec = _type;
+		m_videoSampleRate = _samplingRate;
 	}
 
-	void SetAudioCodecType(const std::string& _type)
+	void SetAudioCodecInfo(const std::string& _type, unsigned int _samplingRate, unsigned char _soundTrack = 1)
 	{
 		m_audioCodec = _type;
+		m_audioSampleRate = _samplingRate;
+		m_soundTrack = _soundTrack;
 	}
 private:
 	
 	int ParseAVCRTP(unsigned char* data, unsigned short sz, unsigned int timeStamp, bool mark);
+
 	int ParseHEVCRTP(unsigned char* data, unsigned short sz, unsigned int timeStamp, bool mark);
 
 	int ParseG711RTP(unsigned char* data, unsigned short sz, unsigned int timeStamp, bool mark);
+
 	int ParseAACRTP(unsigned char* data, unsigned short sz, unsigned int timeStamp, bool mark);
 private:
-	std::string m_videoCodec;
-	std::string m_audioCodec;
-	unsigned int t;
+	std::string m_videoCodec;//视频编码类型
+	unsigned int m_videoSampleRate;//视频采样率
+
+	std::string m_audioCodec;//音频编码类型
+	unsigned int m_audioSampleRate;//音频采样率
+	unsigned char m_soundTrack;//声道
+
 	std::basic_string<unsigned char> frameData;
 	unsigned char naluType;
 private:

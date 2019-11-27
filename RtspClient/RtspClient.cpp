@@ -163,13 +163,12 @@ int RtspClient::ConnectServer(const char* ip, unsigned short port)
 void RtspClient::SendRequest(const std::string cmd, const std::string& url, int irtp, int irtcp)
 {
 	std::vector<std::string> cv;
-	char Header[256];
+	char Header[256] = { 0 };
 
-	memset(Header, 0, 256);
+	//memset(Header, 0, 256);
 	sprintf_s(Header, "%s %s %s\r\n", cmd.c_str(), url.c_str(), "RTSP/1.0");
 	cv.push_back(Header);
 
-	memset(Header, 0, 256);
 	sprintf_s(Header, "CSeq: %d\r\n", ++fSeq);
 	cv.push_back(Header);
 
@@ -183,12 +182,10 @@ void RtspClient::SendRequest(const std::string cmd, const std::string& url, int 
 	{
 		if (!sessionID.empty())
 		{
-			memset(Header, 0, 256);
 			sprintf_s(Header, "Session: %s\r\n", sessionID.c_str());
 			cv.push_back(Header);
 		}
 
-		memset(Header, 0, 256);
 		sprintf_s(Header, "Transport: RTP/AVP/TCP;unicast;interleaved=%d-%d\r\n\r\n", irtp, irtcp);
 		cv.push_back(Header);
 	}
@@ -200,7 +197,6 @@ void RtspClient::SendRequest(const std::string cmd, const std::string& url, int 
 	{
 		if (!sessionID.empty())
 		{
-			memset(Header, 0, 256);
 			sprintf_s(Header, "Session: %s\r\n", sessionID.c_str());
 			cv.push_back(Header);
 		}
@@ -211,7 +207,6 @@ void RtspClient::SendRequest(const std::string cmd, const std::string& url, int 
 	{
 		if (!sessionID.empty())
 		{
-			memset(Header, 0, 256);
 			sprintf_s(Header, "Session: %s\r\n\r\n", sessionID.c_str());
 			cv.push_back(Header);
 		}
@@ -337,7 +332,7 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 					char p2[32];
 					char p3[32];
 					if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]", p1, p2, p3) == 3)
-						rtp->SetVideoCodecType(p2);
+						rtp->SetVideoCodecInfo(p2, atoi(p3));
 
 					hasVideo = true;
 				}
@@ -346,12 +341,15 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 					fAudioControlPath = m.Attributes["control"];
 					auto rtpmap = m.Attributes["rtpmap"];
 					
-					char p1[32];
-					char p2[32];
-					char p3[32];
-					if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]", p1, p2, p3) == 3)
-						rtp->SetAudioCodecType(p2);
-
+					char p1[4];//payload
+					char p2[32];//codec
+					char p3[8];//sampling
+					char p4[4];//track
+					if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]/%[0-9]", p1, p2, p3, p4) == 4)
+						rtp->SetAudioCodecInfo(p2, atoi(p3), atoi(p4));
+					else if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]", p1, p2, p3) == 3)
+						rtp->SetAudioCodecInfo(p2, atoi(p3));
+					
 					hasAudio = true;
 				}
 			}
@@ -428,7 +426,6 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 			}
 			else if (m_currentCmd == "TEARDOWN")
 				return 1;
-			
 		}
 		else
 		{
@@ -563,7 +560,8 @@ unsigned int RtspClient::HandleRtpData()
 		fResponseBytesAlreadySeen -= sz + 4;
 		fResponseBufferBytesLeft += sz + 4;
 
-		HandleRtpData();
+		if (HandleRtpData() != 0)
+			return 1;
 	}
 	else
 	{

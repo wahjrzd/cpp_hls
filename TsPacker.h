@@ -5,9 +5,9 @@
 
 struct TsFileInfo
 {
-	std::wstring fileName;
 	unsigned int fileDuration;//∫¡√Î
 	unsigned int index;
+	std::wstring fileName;
 };
 
 typedef unsigned(*TSCallback)(TsFileInfo& f, void *arg);
@@ -17,7 +17,11 @@ class TsPacker
 public:
 	TsPacker(const std::wstring& dir);
 	~TsPacker();
-	void deliverESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts, bool iFrame);
+
+	void deliverVideoESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts, bool iFrame);
+	
+	void deliverAudioESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts);
+
 	void Reset();
 
 	void SetCallback(TSCallback cb, void* arg)

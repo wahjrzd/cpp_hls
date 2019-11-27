@@ -196,7 +196,7 @@ void TsPacker::deliverPMTPacket()
 	WriteFile(m_hFile, pkt, TRANSPORT_PACKET_SIZE, &byteWrites, NULL);
 }
 
-void TsPacker::deliverESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts, bool iFrame)
+void TsPacker::deliverVideoESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts, bool iFrame)
 {
 	/**/
 	if (m_hFile == INVALID_HANDLE_VALUE)
@@ -401,4 +401,9 @@ DWORD TsPacker::CreateNextFile()
 	++index;
 	m_currentFile = fn;
 	return 0;
+}
+
+void TsPacker::deliverAudioESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts)
+{
+
 }

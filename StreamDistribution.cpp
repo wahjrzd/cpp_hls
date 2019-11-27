@@ -36,7 +36,6 @@ StreamDistribution::~StreamDistribution()
 	delete pPacker;
 
 	FrameInfo f;
-	f.frameType = 0;
 	m_frames.push(f);
 	WakeConditionVariable(&m_frameCondition);
 
@@ -115,6 +114,8 @@ unsigned StreamDistribution::wrapRawCB(FrameInfo& f)
 	LeaveCriticalSection(&m_frameLock);
 
 	WakeConditionVariable(&m_frameCondition);
+
+
 	return 0;
 }
 
@@ -131,13 +132,17 @@ unsigned StreamDistribution::WrapPacket()
 		m_frames.pop();
 		LeaveCriticalSection(&m_frameLock);
 
-		if (f.frameType == 5) {
-			pPacker->deliverESPacket(f.data.c_str(), f.data.size(), f.timeStamp, true);
+		if (f.mediaType == "video")
+		{
+			if (f.frameType == 5) {
+				pPacker->deliverVideoESPacket(f.data.c_str(), f.data.size(), f.timeStamp, true);
+			}
+			else if (f.frameType != 0)
+				pPacker->deliverVideoESPacket(f.data.c_str(), f.data.size(), f.timeStamp, false);
+			else
+				break;
 		}
-		else if (f.frameType != 0)
-			pPacker->deliverESPacket(f.data.c_str(), f.data.size(), f.timeStamp, false);
-		else
-			break;
+		
 	}
 	return 0;
 }
@@ -228,7 +233,7 @@ unsigned StreamDistribution::WrapCheck()
 			{
 				if (difftime(ct, it->second->GetUpdateTime()) > 15)
 				{
-					printf("remove client\n");
+					std::clog << "remove client:" << it->second->GetSessionID() << std::endl;
 					delete it->second;
 					it = m_clients.erase(it);
 					continue;
