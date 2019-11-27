@@ -14,7 +14,7 @@ class Config;
 class HLSServer
 {
 public:
-	HLSServer(const std::wstring& ip, unsigned short port);
+	HLSServer();
 	~HLSServer();
 
 	void Start();

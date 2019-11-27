@@ -33,8 +33,6 @@ StreamDistribution::~StreamDistribution()
 		delete pstream;
 	}
 
-	delete pPacker;
-
 	FrameInfo f;
 	m_frames.push(f);
 	WakeConditionVariable(&m_frameCondition);
@@ -53,6 +51,8 @@ StreamDistribution::~StreamDistribution()
 		DeleteFile(fullpath.c_str());
 		m_tsFiles.pop();
 	}
+
+	delete pPacker;
 
 	CloseHandle(m_checkEvent);
 	DeleteCriticalSection(&m_clientLock);

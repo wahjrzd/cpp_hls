@@ -8,19 +8,13 @@
 
 #pragma warning(disable:4996)
 
-HLSServer::HLSServer(const std::wstring& ip, unsigned short port) : m_port(port), m_ip(ip)
+HLSServer::HLSServer() :m_pListener(nullptr)
 {
-	WCHAR uri[MAX_PATH];
-	swprintf_s(uri, MAX_PATH, L"http://%ws:%hu/", m_ip.c_str(), m_port);
-	m_uri = uri;
-	m_pListener = new web::http::experimental::listener::http_listener(m_uri);
-
 	InitializeCriticalSection(&m_disLock);
-	
+
 	m_checkEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	m_pCfg = new Config();
 }
-
 
 HLSServer::~HLSServer()
 {
@@ -43,9 +37,16 @@ HLSServer::~HLSServer()
 
 void HLSServer::Start()
 {
-	m_pCfg->LoadConfig("config.json");
+	if (!m_pCfg->LoadConfig(U("config.json")))
+		return;
+
 	m_ip = m_pCfg->_ip;
-	m_port = m_pCfg->port;
+	m_port = m_pCfg->_port;
+
+	WCHAR uri[MAX_PATH];
+	swprintf_s(uri, MAX_PATH, L"http://%ws:%hu/", m_ip.c_str(), m_port);
+	m_uri = uri;
+	m_pListener = new web::http::experimental::listener::http_listener(m_uri);
 
 	try
 	{
@@ -56,6 +57,7 @@ void HLSServer::Start()
 	catch (const std::exception& e)
 	{
 		std::cout << e.what() << std::endl;
+		return;
 	}
 
 	if (!m_checkFuture.valid())
@@ -86,8 +88,17 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 			{
 				if (uuid.empty())
 				{
-					//std::string url = "rtsp://admin:admin@25.30.9.45:554/cam/realmonitor?channel=1&subtype=0";
-					std::string url = "rtsp://admin:12qwaszx@25.30.9.129:554/h264/ch1/main/av_stream";
+					std::string url = m_pCfg->streamMap[streamid];
+					if (url.empty())
+					{
+						std::vector<std::pair<utility::string_t, web::json::value>> kv;
+						kv.push_back({ U("error"),web::json::value::string(U("specify stream not found")) });
+						web::json::value v = web::json::value::object(kv);
+						
+						msg.reply(web::http::status_codes::NotFound, v);
+						return;
+					}
+
 					uuid = WinUtility::CreateXID();
 					EnterCriticalSection(&m_disLock);
 					auto it = m_distributions.find(streamid);
@@ -128,11 +139,15 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 					std::string info = pm3u8->GetM3U8();
 					
 					if (info.empty())
-						msg.reply(web::http::status_codes::RequestTimeout);
+					{
+						std::vector<std::pair<utility::string_t, web::json::value>> kv;
+						kv.push_back({ U("info"),web::json::value::string(U("m3u8 not already ok")) });
+						web::json::value v = web::json::value::object(kv);
+
+						msg.reply(web::http::status_codes::RequestTimeout, v);
+					}
 					else
 						msg.reply(web::http::status_codes::OK, info, appMpegUrl);
-					//web::json::value v;
-					
 				}
 			}
 			else if (fn.substr(pos) == ".ts")
@@ -152,6 +167,11 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 				}
 				catch (const std::exception& e)
 				{
+					std::vector<std::pair<utility::string_t, web::json::value>> kv;
+					kv.push_back({ U("error"),web::json::value::string(U("request this file some error happened")) });
+					web::json::value v = web::json::value::object(kv);
+
+					msg.reply(web::http::status_codes::NotFound, v);
 					std::wcout << e.what() << std::endl;
 				}
 			}
@@ -169,8 +189,11 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 
 void HLSServer::Stop()
 {
-	m_pListener->close().wait();
-	delete m_pListener;
+	if (m_pListener)
+	{
+		m_pListener->close().wait();
+		delete m_pListener;
+	}
 }
 
 void HLSServer::ParseUrl(const std::string& url, std::string& streamID, std::string& fn, std::string& uuid)

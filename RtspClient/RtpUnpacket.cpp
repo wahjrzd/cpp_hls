@@ -130,7 +130,6 @@ static unsigned const samplingFrequencyFromIndex[16] = {
   16000, 12000, 11025, 8000, 7350, 0, 0, 0
 };
 
-
 int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned int timeStamp, bool mark)
 {
 	frameData.append(data, sz);

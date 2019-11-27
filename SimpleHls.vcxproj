@@ -161,6 +161,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="bits.h" />
+    <ClInclude Include="Config.h" />
     <ClInclude Include="HLSServer.h" />
     <ClInclude Include="M3U8Client.h" />
     <ClInclude Include="pch.h" />
@@ -173,6 +174,7 @@
     <ClInclude Include="WinUtility.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Config.cpp" />
     <ClCompile Include="HLSServer.cpp" />
     <ClCompile Include="M3U8Client.cpp" />
     <ClCompile Include="pch.cpp">
@@ -190,7 +192,17 @@
     <ClCompile Include="TsPacker.cpp" />
     <ClCompile Include="WinUtility.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="config.json">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties config_1json__JSONSchema="" />
+    </VisualStudio>
+  </ProjectExtensions>
 </Project>

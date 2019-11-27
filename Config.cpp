@@ -1,7 +1,7 @@
 #include "Config.h"
 #include <cpprest/json.h>
 
-Config::Config() :_ip(U("127.0.0.1")), port(8123)
+Config::Config() :_ip(U("127.0.0.1")), _port(8123)
 {
 }
 
@@ -9,20 +9,26 @@ Config::~Config()
 {
 }
 
-bool Config::LoadConfig(const std::string& cfgPath)
+bool Config::LoadConfig(const std::wstring& cfgPath)
 {
 	try
 	{
-		web::json::value v;
-		std::ifstream wf(cfgPath, std::wfstream::in);
-		wf.seekg(0, std::ios::end);
-		auto sz = std::streamoff(wf.tellg());
-		wf.seekg(0, std::ios::beg);
-
-		char* p = new char[sz];
-		wf.read(p, sz);
-		std::string out(p, sz);
-		delete p;
+		utility::ifstream_t wf(cfgPath, std::wfstream::in | std::wfstream::binary);
+		auto retJson = web::json::value::parse(wf);
+		_ip = retJson.at(U("host")).as_string();
+		_port = retJson.at(U("port")).as_integer();
+		auto stream = retJson.at(U("stream"));
+		if (stream.is_array())
+		{
+			auto it = stream.as_array().cbegin();
+			while (it != stream.as_array().cend())
+			{
+				auto id = utility::conversions::to_utf8string(it->at(U("id")).as_string());
+				auto url = utility::conversions::to_utf8string(it->at(U("url")).as_string());
+				streamMap.insert({ std::move(id) ,std::move(url) });
+				++it;
+			}
+		}
 	}
 	catch (const std::exception& e)
 	{
