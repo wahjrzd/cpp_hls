@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 enum class FLV_TAG_TYPE
 {
@@ -53,9 +54,9 @@ public:
 	FLVPacker();
 	~FLVPacker();
 
-	void deliverVideoESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts, bool iFrame);
+	void deliverVideoESPacket(const std::basic_string<std::uint8_t>& frame, unsigned int pts, bool iFrame);
 
-	void deliverAudioESPacket(unsigned char const* frame, unsigned int frame_size, unsigned int pts);
+	void deliverAudioESPacket(const std::basic_string<std::uint8_t>& frame, unsigned int pts);
 
 	void SetCallback(FLVCallback cb, void* arg)
 	{
@@ -63,10 +64,20 @@ public:
 		m_arg = arg;
 	}
 private:
-	void GenerateFLVTagHeader(FLV_TAG_TYPE t, unsigned int bodySize, unsigned int timeStamp);
-	std::basic_string<std::uint8_t> GenerateAVCSequenceHeader(const std::basic_string<std::uint8_t>& sps, const std::basic_string<std::uint8_t>& pps);
+	std::basic_string<std::uint8_t> GenerateFLVTagHeader(FLV_TAG_TYPE t, unsigned int bodySize, unsigned int timeStamp);
+
+	void GenerateAVCSequenceHeader(const std::basic_string<std::uint8_t>& sps, const std::basic_string<std::uint8_t>& pps);
+
+	std::basic_string<std::uint8_t> GenerateAudioTagHead();
 	
+	std::basic_string<std::uint8_t> PackOneFrame(std::vector<std::basic_string<std::uint8_t>>& vn, bool iFrame);
+
+	void GetNalus(const std::basic_string<std::uint8_t>& data, std::vector<std::basic_string<std::uint8_t>>& vn);
 private:
+	std::basic_string<std::uint8_t> m_videoSequenceHeader;
+	std::basic_string<std::uint8_t> m_audioSequenceHeader;
+	std::basic_string<std::uint8_t> m_tagData;
+
 	FLVCallback m_cb;
 	void* m_arg;
 };

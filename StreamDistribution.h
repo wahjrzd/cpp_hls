@@ -3,6 +3,7 @@
 #include <queue>
 #include "RtspClient/RtpUnpacket.h"
 #include "TsPacker.h"
+#include "httpflv/FLVPacker.h"
 #include <future>
 
 class RtspClient;
@@ -36,6 +37,8 @@ private:
 private:
 	TsPacker* pPacker;
 	std::wstring m_dir;
+private:
+	FLVPacker *flvPacker;
 private:
 	std::future<unsigned int> m_checkFuture;
 	HANDLE m_checkEvent;

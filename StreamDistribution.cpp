@@ -8,7 +8,8 @@
 StreamDistribution::StreamDistribution(const std::string& id, std::string& url) :pstream(nullptr),
 m_uri(url),
 m_streamID(id),
-m_index(0)
+m_index(0),
+flvPacker(nullptr)
 {
 	InitializeCriticalSection(&m_clientLock);
 	InitializeCriticalSection(&m_frameLock);
@@ -55,6 +56,7 @@ StreamDistribution::~StreamDistribution()
 	}
 
 	delete pPacker;
+	delete flvPacker;
 
 	CloseHandle(m_checkEvent);
 	DeleteCriticalSection(&m_clientLock);
@@ -136,6 +138,16 @@ unsigned StreamDistribution::WrapPacket()
 
 		if (f.mediaType == "video")
 		{
+			flvPacker->deliverVideoESPacket(f.data, f.timeStamp, f.frameType == 5 ? true : false);
+		}
+		auto task = concurrency::create_task([]() {
+			
+		
+			return 0;
+		});
+
+		if (f.mediaType == "video")
+		{
 			if (f.frameType == 5) {
 				pPacker->deliverVideoESPacket(f.data.c_str(), f.data.size(), f.timeStamp, true);
 			}
@@ -144,7 +156,7 @@ unsigned StreamDistribution::WrapPacket()
 			else
 				break;
 		}
-		
+		task.get();
 	}
 	return 0;
 }

@@ -45,11 +45,11 @@ public:
 	AMF();
 	~AMF();
 
-	std::string AMF_EncodeString(const std::string& name);
+	static std::string AMF_EncodeString(const std::string& name);
 
-	std::string AMF_EncodeNumber(const double val);
+	static std::string AMF_EncodeNumber(const double val);
 
-	std::string AMF_EncodePropertyWithString(const std::string& propertyName, const std::string& val);
+	static std::string AMF_EncodePropertyWithString(const std::string& propertyName, const std::string& val);
 
-	std::string AMF_EncodePropertyWithDouble(const std::string& propertyName, const double& val);
+	static std::string AMF_EncodePropertyWithDouble(const std::string& propertyName, const double& val);
 };

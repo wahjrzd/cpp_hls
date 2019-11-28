@@ -163,6 +163,8 @@
     <ClInclude Include="bits.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="HLSServer.h" />
+    <ClInclude Include="httpflv\AMF.h" />
+    <ClInclude Include="httpflv\FLVPacker.h" />
     <ClInclude Include="M3U8Client.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RtspClient\Authenticator.h" />
@@ -176,6 +178,8 @@
   <ItemGroup>
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="HLSServer.cpp" />
+    <ClCompile Include="httpflv\AMF.cpp" />
+    <ClCompile Include="httpflv\FLVPacker.cpp" />
     <ClCompile Include="M3U8Client.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

@@ -13,7 +13,7 @@ struct FrameInfo
 	int reserver;
 	std::string mediaType;//video or audio
 	std::string codecType;//±àÂëÀàĞÍ
-	std::basic_string<unsigned char> data;//media data
+	std::basic_string<std::uint8_t> data;//media data
 	FrameInfo()
 	{
 		frameType = 0;
