@@ -20,7 +20,7 @@ m_index(0)
 	pPacker = new TsPacker(m_dir);
 	pPacker->SetCallback(tscb, this);
 
-	m_header = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-ALLOW-CACHE:NO\n#EXT-X-TARGETDURATION:2\n";
+	m_header = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-ALLOW-CACHE:NO\n#EXT-X-TARGETDURATION:4\n";
 
 	m_checkEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 }
@@ -33,8 +33,10 @@ StreamDistribution::~StreamDistribution()
 		delete pstream;
 	}
 
+	EnterCriticalSection(&m_frameLock);
 	FrameInfo f;
 	m_frames.push(f);
+	LeaveCriticalSection(&m_frameLock);
 	WakeConditionVariable(&m_frameCondition);
 
 	if (m_packetFuture.valid())

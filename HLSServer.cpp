@@ -135,7 +135,6 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 						pm3u8 = it->second->GetClient(uuid);
 					LeaveCriticalSection(&m_disLock);
 
-					int i = 0;
 					std::string info = pm3u8->GetM3U8();
 					
 					if (info.empty())
@@ -157,11 +156,11 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 				auto fullPath = utility::conversions::usascii_to_utf16(path);
 				try
 				{
-					concurrency::streams::fstream::open_istream(fullPath, std::ios::in).then(
+					concurrency::streams::fstream::open_istream(fullPath, std::ios::in|std::ios::binary).then(
 						[=](concurrency::streams::istream is) {
-				
+
 						msg.reply(web::http::status_codes::OK, is, videoMP2T);
-				
+
 					}
 					).get();
 				}
@@ -170,7 +169,7 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 					std::vector<std::pair<utility::string_t, web::json::value>> kv;
 					kv.push_back({ U("error"),web::json::value::string(U("request this file some error happened")) });
 					web::json::value v = web::json::value::object(kv);
-
+					msg.headers().add(U("Connection"), U("close"));
 					msg.reply(web::http::status_codes::NotFound, v);
 					std::wcout << e.what() << std::endl;
 				}
@@ -191,7 +190,14 @@ void HLSServer::Stop()
 {
 	if (m_pListener)
 	{
-		m_pListener->close().wait();
+		try
+		{
+			m_pListener->close().wait();
+		}
+		catch (const std::exception&)
+		{
+
+		}
 		delete m_pListener;
 	}
 }

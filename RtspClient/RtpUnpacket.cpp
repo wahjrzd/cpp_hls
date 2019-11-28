@@ -4,7 +4,8 @@
 RtpUnpacket::RtpUnpacket() : naluType(0),
 pUsr(nullptr), m_cb(nullptr),
 m_videoCodec("H264"),
-m_audioCodec("PCMU")
+m_audioCodec("PCMU"),
+m_soundTrack(1)
 {
 
 }
@@ -69,7 +70,7 @@ int RtpUnpacket::ParseAVCRTP(unsigned char* data, unsigned short sz, unsigned in
 			frameData.append(data + 2, sz - 2);
 		}
 		else
-			std::cout << "error" << std::endl;
+			std::cout << "avc rtp stream has some error" << std::endl;
 	}
 	else
 	{
@@ -99,6 +100,51 @@ int RtpUnpacket::ParseAVCRTP(unsigned char* data, unsigned short sz, unsigned in
 
 int RtpUnpacket::ParseHEVCRTP(unsigned char* data, unsigned short sz, unsigned int timeStamp, bool mark)
 {
+	if (((data[0] >> 1) & 49) == 49)
+	{
+		auto se = data[2] >> 6;
+		naluType = data[2] & 0x3f;
+		if (se == 2)
+		{
+			unsigned char naluHeader[2];
+			naluHeader[0] = (data[0] & 0x81) | (naluType << 1);
+			naluHeader[1] = data[1];
+
+			unsigned char nal[] = { 0x00,0x00,0x00,0x01 };
+			frameData.append(nal, 4);
+			frameData.append(naluHeader, 2);
+			frameData.append(data + 3, sz - 3);
+		}
+		else if (se != 3)
+		{
+			frameData.append(data + 3, sz - 3);
+		}
+		else
+			std::clog << "not a correct hevc rtp stream" << std::endl;
+	}
+	else
+	{
+		naluType = (data[0] & 0x7E) >> 1;
+		unsigned char nal[] = { 0x00,0x00,0x00,0x01 };
+		frameData.append(nal, 4);
+		frameData.append(data, sz);
+	}
+
+	if (mark)
+	{
+		if (m_cb)
+		{
+			FrameInfo ff;
+			ff.codecType = "H265";
+			ff.data = frameData;
+			ff.timeStamp = timeStamp / 90;
+			ff.samplingRate = m_videoSampleRate;
+			ff.frameType = naluType;
+
+			m_cb(ff, pUsr);
+		}
+		frameData.clear();
+	}
 	return 0;
 }
 
@@ -143,7 +189,7 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 			//layer                        2 00
 			//protection_absend            1 1(no crc) 0(crc)  fff1
 			//profile                      2 01
-			//sampling_frequecny_index     4 1000 
+			//sampling_frequecny_index     4 1000 1011
 			//private_bit                  1 0
 			//channel_configuration        3 1   60
 			//original_copy                1 0
@@ -157,7 +203,9 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 			unsigned char ADTS[] = { 0xFF, 0xF1, 0x00, 0x00, 0x00, 0x00, 0xFC };
 			switch (m_audioSampleRate)
 			{
-			case 16000:
+			case 8000://11
+				ADTS[2] = 0x6C; break;
+			case 16000://8
 				ADTS[2] = 0x60; break;//main profile(1)  sampling_frequecny_index 8
 			case 32000:
 				ADTS[2] = 0x54; break;
@@ -176,7 +224,7 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 			ADTS[5] = (len << 5) | 0x1F;//µÍÈýÎ»
 
 			if (data[0] != 0x00 && data[1] != 0x10)
-				std::cerr << "correct aac stream" << std::endl;
+				std::cerr << "not a correct aac stream" << std::endl;
 			
 			FrameInfo ff;
 			ff.mediaType = "audio";

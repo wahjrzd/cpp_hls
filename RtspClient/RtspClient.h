@@ -24,7 +24,9 @@ public:
 	void SetRawCallback(RawCallback cb, void* arg);
 	void Stop();
 private:
-	int parseURL(const char* url, std::string& usr, std::string& pwd, std::string& ip, unsigned short& port);
+	int parseURL(const char* url, std::string& usr,
+		std::string& pwd, std::string& ip, unsigned short& port,
+		std::string& suffix);
 
 	int ConnectServer(const char* ip, unsigned short port);
 

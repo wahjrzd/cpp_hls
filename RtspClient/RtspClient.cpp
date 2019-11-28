@@ -39,9 +39,17 @@ bool RtspClient::OpenRtsp(const char* url)
 	std::string user;
 	std::string password;
 	std::string host;
+	std::string suffix;
 	unsigned short port;
-	parseURL(url, user, password, host, port);
-	fBaseUrl = url;
+	parseURL(url, user, password, host, port, suffix);
+
+	char xu[256];
+	if (port == 554)
+		sprintf_s(xu, "rtsp://%s%s", host.c_str(), suffix.c_str());
+	else
+		sprintf_s(xu, "rtsp://%s:%hu%s", host.c_str(), port, suffix.c_str());
+
+	fBaseUrl = xu;
 	fResponseBuffer = new char[20000];
 
 	if (!user.empty() && !password.empty())
@@ -58,7 +66,7 @@ bool RtspClient::OpenRtsp(const char* url)
 	return true;
 }
 
-int RtspClient::parseURL(const char* url, std::string& usr, std::string& pwd, std::string& ip, unsigned short& port)
+int RtspClient::parseURL(const char* url, std::string& usr, std::string& pwd, std::string& ip, unsigned short& port, std::string& suffix)
 {
 	char const* prefix = "rtsp://";
 	unsigned const prefixLength = 7;
@@ -117,7 +125,7 @@ int RtspClient::parseURL(const char* url, std::string& usr, std::string& pwd, st
 
 	if (i == parseBufferSize)
 		return 1;
-	
+
 	ip = parseBuffer;
 	unsigned short portNum = 554; // default value
 	char nextChar = *from;
@@ -133,6 +141,7 @@ int RtspClient::parseURL(const char* url, std::string& usr, std::string& pwd, st
 	}
 	port = portNum;
 	const char* urlSuffix = from;
+	suffix = urlSuffix;
 	return 0;
 }
 
