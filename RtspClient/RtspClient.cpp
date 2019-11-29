@@ -252,7 +252,7 @@ unsigned int RtspClient::WrapHandleData()
 		else if (ret == 1)
 		{
 			ret = ::recv(m_cli, &fResponseBuffer[fResponseBytesAlreadySeen], fResponseBufferBytesLeft, 0);
-			if (ret <= 0)
+			if (ret <= 0 && fResponseBufferBytesLeft != 0)
 			{
 				fprintf(stderr, "recv data failed:%d\n", WSAGetLastError());
 				break;

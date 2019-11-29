@@ -125,6 +125,8 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 						fn.c_str(), uuid.c_str());
 					
 					msg.reply(web::http::status_codes::OK, m3u8, appMpegUrl);
+
+					//msg.reply(web::http::status_codes::NotFound);
 				}
 				else
 				{

@@ -21,6 +21,9 @@ flvPacker(nullptr)
 	pPacker = new TsPacker(m_dir);
 	pPacker->SetCallback(tscb, this);
 
+	flvPacker = new FLVPacker();
+	flvPacker->SetCallback(flvcb, this);
+
 	m_header = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-ALLOW-CACHE:NO\n#EXT-X-TARGETDURATION:4\n";
 
 	m_checkEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -57,7 +60,7 @@ StreamDistribution::~StreamDistribution()
 
 	delete pPacker;
 	delete flvPacker;
-
+	
 	CloseHandle(m_checkEvent);
 	DeleteCriticalSection(&m_clientLock);
 	DeleteCriticalSection(&m_frameLock);
@@ -136,13 +139,8 @@ unsigned StreamDistribution::WrapPacket()
 		m_frames.pop();
 		LeaveCriticalSection(&m_frameLock);
 
-		if (f.mediaType == "video")
-		{
-			flvPacker->deliverVideoESPacket(f.data, f.timeStamp, f.frameType == 5 ? true : false);
-		}
-		auto task = concurrency::create_task([]() {
-			
-		
+		auto task = concurrency::create_task([&]() {
+			this->flvInputData(f);
 			return 0;
 		});
 
@@ -156,6 +154,7 @@ unsigned StreamDistribution::WrapPacket()
 			else
 				break;
 		}
+
 		task.get();
 	}
 	return 0;
@@ -209,6 +208,20 @@ unsigned StreamDistribution::wrapTSCB(TsFileInfo& f)
 		m_index = 0;
 	}
 
+	return 0;
+}
+
+unsigned StreamDistribution::flvcb(FLVFramePacket& f, void* arg)
+{
+	StreamDistribution* p = (StreamDistribution*)arg;
+	return p->wrapFlvcb(f);
+}
+
+unsigned StreamDistribution::wrapFlvcb(FLVFramePacket& f)
+{
+	//fwrite(FLV_FILE_HEADER, 1, 13, pf);
+		//fwrite(f.meta.c_str(), 1, f.meta.size(), pf);
+		//fwrite(f.videoSequence.c_str(), 1, f.videoSequence.size(), pf);
 	return 0;
 }
 

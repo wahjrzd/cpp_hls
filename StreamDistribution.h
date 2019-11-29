@@ -20,6 +20,17 @@ public:
 	void AddClient(const std::string& id, M3U8Client* cli);
 	M3U8Client* GetClient(const std::string& id);
 	size_t GetClientCount();
+
+	void flvInputData(const FrameInfo& f)
+	{
+		if (flvPacker)
+		{
+			if (f.mediaType == "video")
+				flvPacker->deliverVideoESPacket(f.data, f.timeStamp, f.frameType == 5 ? true : false);
+			else
+				flvPacker->deliverAudioESPacket(f.data, f.timeStamp);
+		}
+	}
 private:
 	static unsigned rawcb(FrameInfo& f, void* arg);
 	unsigned wrapRawCB(FrameInfo& f);
@@ -28,6 +39,9 @@ private:
 
 	static unsigned tscb(TsFileInfo& f, void *arg);
 	unsigned wrapTSCB(TsFileInfo& f);
+
+	static unsigned flvcb(FLVFramePacket& f, void* arg);
+	unsigned wrapFlvcb(FLVFramePacket& f);
 
 	unsigned WrapCheck();
 private:

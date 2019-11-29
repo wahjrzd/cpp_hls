@@ -45,11 +45,34 @@ public:
 	AMF();
 	~AMF();
 
+	static unsigned char* AMF_EncodeBoolean(unsigned char* input, bool val);
+
+	static unsigned char* AMF_Encodestr(unsigned char* input, unsigned char* str, unsigned int sz);
+
+	static unsigned char* AMF_Encodenum(unsigned char* input, double val);
+
+	template<typename T>
+	static unsigned char* AMF_tt(unsigned char* input, const std::string& propName, T val, unsigned int sz)
+	{
+		*input++ = (propName.size() >> 8) & 0xff;
+		*input++ = propName.size() & 0xff;
+		memcpy(input, propName.c_str(), propName.size());
+		input += propName.size();
+
+		if (std::is_same<T, double>::value)
+			input = AMF_Encodenum(input, val);
+		else if (std::is_same<T, unsigned char*>::value)
+			input = AMF_Encodestr(input, val, sz);
+		return input;
+	}
+
 	static std::string AMF_EncodeString(const std::string& name);
 
-	static std::string AMF_EncodeNumber(const double val);
+	static std::string AMF_EncodeNumber(double val);
 
 	static std::string AMF_EncodePropertyWithString(const std::string& propertyName, const std::string& val);
 
-	static std::string AMF_EncodePropertyWithDouble(const std::string& propertyName, const double& val);
+	static std::string AMF_EncodePropertyWithDouble(const std::string& propertyName, double val);
+
+	
 };

@@ -8,6 +8,38 @@ AMF::~AMF()
 {
 }
 
+unsigned char* AMF::AMF_EncodeBoolean(unsigned char* input, bool val)
+{
+	*input++ = static_cast<unsigned char>(AMFDataType::AMF_BOOLEAN);
+	*input++ = val == true ? 0x01 : 0x00;
+	return input;
+}
+
+unsigned char* AMF::AMF_Encodestr(unsigned char* input, unsigned char* str, unsigned int sz)
+{
+	*input++ = static_cast<unsigned char>(AMFDataType::AMF_STRING);
+	*input++ = (sz >> 8) & 0xff;
+	*input++ = sz & 0xff;
+	memcpy(input, str, sz);
+	input += sz;
+	return input;
+}
+
+unsigned char* AMF::AMF_Encodenum(unsigned char* input, double val)
+{
+	*input++ = static_cast<unsigned char>(AMFDataType::AMF_NUMBER);
+	unsigned char* ci = (unsigned char*)&val;
+	*input++ = ci[7];
+	*input++ = ci[6];
+	*input++ = ci[5];
+	*input++ = ci[4];
+	*input++ = ci[3];
+	*input++ = ci[2];
+	*input++ = ci[1];
+	*input++ = ci[0];
+	return input;
+}
+
 std::string AMF::AMF_EncodeString(const std::string& name)
 {
 	std::string s;
@@ -50,7 +82,7 @@ std::string AMF::AMF_EncodePropertyWithString(const std::string& propertyName, c
 	return s;
 }
 
-std::string AMF::AMF_EncodePropertyWithDouble(const std::string& propertyName, const double& val)
+std::string AMF::AMF_EncodePropertyWithDouble(const std::string& propertyName, double val)
 {
 	std::string s;
 	char a[2];
