@@ -3,6 +3,7 @@
 
 FLVPacker::FLVPacker() :m_cb(nullptr)
 {
+	m_meta = onMeta(1920, 1080, 25);
 }
 
 FLVPacker::~FLVPacker()
@@ -17,37 +18,21 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 	GetNalus(frame, vn);
 	if (vn.size() > 0)
 	{
-		if (m_videoSequenceHeader.empty())
+		if (sps.empty() && pps.empty())
 		{
 			if (vn.size() > 3)
 			{
-				auto it = vn.begin();
-				auto tagData = GenerateAVCSequenceHeader(*it, *(it + 1));
-				//it = vn.erase(it);
-				//vn.erase(it);
-
-				auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_VIDEO, tagData.size(), pppss);
-				unsigned int previousSize = tagData.size() + 11;
-				std::uint8_t a[4];
-				a[0] = (previousSize >> 24) & 0xff;
-				a[1] = (previousSize >> 16) & 0xff;
-				a[2] = (previousSize >> 8) & 0xff;
-				a[3] = previousSize & 0xff;
-
-				m_videoSequenceHeader.append(std::move(tagHead));
-				m_videoSequenceHeader.append(std::move(tagData));
-				m_videoSequenceHeader.append(a, 4);
-
-				m_meta = onMeta(1920, 1080, 25);
+				sps = vn[0];
+				pps = vn[1];
 
 				if (m_cb)
 				{
 					FLVFramePacket f;
-					
-					f.videoSequence = m_videoSequenceHeader;
-					f.meta = m_meta;
-					f.data = std::move(GenerateVideoFVLTag(vn, pppss, iFrame));
-
+					f.VideoSeqFunc = std::bind(&FLVPacker::videoSequenceTag, this);
+					f.AudioSeqFunc = std::bind(&FLVPacker::audioSequenceTag, this);
+					f.MetaFunc = std::bind(&FLVPacker::metaTag, this);
+					f.data = std::move(GenerateVideoFLVTag(vn, pppss, iFrame));
+					f.arg = this;
 					m_cb(f, m_arg);
 				}
 				pppss += 40;
@@ -58,9 +43,12 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 			if (m_cb)
 			{
 				FLVFramePacket f;
-				f.videoSequence = m_videoSequenceHeader;
-				f.meta = m_meta;
-				f.data = std::move(GenerateVideoFVLTag(vn, pppss, iFrame));
+				f.VideoSeqFunc = std::bind(&FLVPacker::videoSequenceTag, this);
+				f.AudioSeqFunc = std::bind(&FLVPacker::audioSequenceTag, this);
+				f.MetaFunc = std::bind(&FLVPacker::metaTag, this);
+				f.data = std::move(GenerateVideoFLVTag(vn, pppss, iFrame));
+				f.arg = this;
+
 				m_cb(f, m_arg);
 			}
 			pppss += 40;
@@ -70,7 +58,18 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 
 void FLVPacker::deliverAudioESPacket(const std::basic_string<std::uint8_t>& frame, unsigned int pts)
 {
-
+	auto data = GenerateAudioFLVTag(frame, pts);
+	if (m_cb)
+	{
+		FLVFramePacket f;
+		f.VideoSeqFunc = std::bind(&FLVPacker::videoSequenceTag, this);
+		f.AudioSeqFunc = std::bind(&FLVPacker::audioSequenceTag, this);
+		f.MetaFunc = std::bind(&FLVPacker::metaTag, this);
+		f.arg = this;
+		f.data = std::move(data);
+		f.type = "audio";
+		m_cb(f, m_arg);
+	}
 }
 
 std::basic_string<std::uint8_t> FLVPacker::GenerateFLVTagHeader(FLV_TAG_TYPE t, unsigned int bodySize, unsigned int timeStamp)
@@ -93,9 +92,11 @@ std::basic_string<std::uint8_t> FLVPacker::GenerateFLVTagHeader(FLV_TAG_TYPE t, 
 	return s;
 }
 
-std::basic_string<std::uint8_t> FLVPacker::GenerateAVCSequenceHeader(const std::basic_string<std::uint8_t>& sps, const std::basic_string<std::uint8_t>& pps)
+std::basic_string<std::uint8_t> FLVPacker::videoSequenceTag()
 {
 	std::basic_string<std::uint8_t> s;
+	if (sps.empty() || pps.empty())
+		return s;
 
 	std::uint8_t a[11];
 	a[0] = 0x17;
@@ -121,10 +122,22 @@ std::basic_string<std::uint8_t> FLVPacker::GenerateAVCSequenceHeader(const std::
 	a[2] = pps.size() & 0xff;
 	s.append(a, 3);
 	s.append(pps);
-	return s;
+
+	auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_VIDEO, s.size(), 0);
+
+	unsigned int previousSize = s.size() + 11;
+	a[0] = (previousSize >> 24) & 0xff;
+	a[1] = (previousSize >> 16) & 0xff;
+	a[2] = (previousSize >> 8) & 0xff;
+	a[3] = previousSize & 0xff;
+
+	std::basic_string<std::uint8_t> ret(std::move(tagHead));
+	ret.append(s);
+	ret.append(a, 4);
+	return ret;
 }
 
-std::basic_string<std::uint8_t> FLVPacker::GenerateVideoFVLTag(std::vector<std::basic_string<std::uint8_t>>& nalus,
+std::basic_string<std::uint8_t> FLVPacker::GenerateVideoFLVTag(std::vector<std::basic_string<std::uint8_t>>& nalus,
 	unsigned int timeStamp, bool iFrame)
 {
 	std::basic_string<std::uint8_t> s;
@@ -145,10 +158,49 @@ std::basic_string<std::uint8_t> FLVPacker::GenerateVideoFVLTag(std::vector<std::
 	return s;
 }
 
-std::basic_string<std::uint8_t> FLVPacker::GenerateAudioTagHead()
+std::basic_string<std::uint8_t> FLVPacker::audioSequenceTag()
 {
 	std::basic_string<std::uint8_t> s;
+	std::uint8_t a[4];
+	a[0] = (10 << 4) | 0x0F;//1010 1111 aac soundrate2 soundsize1 stereo1
+	a[1] = 0x00;//sounddata
+	a[2] = 0x14;//00010 100  //16000kz 1soundtrack
+	a[3] = 0x08;//0 0001 0 0 0
+	auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_AUDIO, 4, 0);
+
+	s.append(tagHead);
+	s.append(a, 4);
+
+	unsigned int previousSize = 4 + 11;
+	a[0] = (previousSize >> 24) & 0xff;
+	a[1] = (previousSize >> 16) & 0xff;
+	a[2] = (previousSize >> 8) & 0xff;
+	a[3] = previousSize & 0xff;
+	
+	s.append(a, 4);
 	return s;
+}
+
+std::basic_string<std::uint8_t> FLVPacker::GenerateAudioFLVTag(const std::basic_string<std::uint8_t>& data, unsigned int timeStamp)
+{
+	std::basic_string<std::uint8_t> s;
+	std::uint8_t a[4];
+	a[0] = (10 << 4) | 0x0F;
+	a[1] = 0;
+	s.append(a, 2);
+	s.append(data);
+
+	auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_AUDIO, s.size(), 0);
+	unsigned int previousSize = s.size() + 11;
+	a[0] = (previousSize >> 24) & 0xff;
+	a[1] = (previousSize >> 16) & 0xff;
+	a[2] = (previousSize >> 8) & 0xff;
+	a[3] = previousSize & 0xff;
+
+	std::basic_string<std::uint8_t> ret(std::move(tagHead));
+	ret.append(s);
+	ret.append(a, 4);
+	return ret;
 }
 
 std::basic_string<std::uint8_t> FLVPacker::PackNalus(std::vector<std::basic_string<std::uint8_t>>& vn, bool iFrame)

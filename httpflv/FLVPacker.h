@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <functional>
 
 enum class FLV_TAG_TYPE
 {
@@ -25,12 +26,15 @@ enum class FLV_CODEC
 struct FLVFramePacket
 {
 	std::basic_string<std::uint8_t> data;
-	std::basic_string<std::uint8_t> videoSequence;
-	std::basic_string<std::uint8_t> audioSequence;
-	std::basic_string<std::uint8_t> meta;
-	FLVFramePacket()
+	std::string type;
+	std::function<std::basic_string<std::uint8_t>(void*)> VideoSeqFunc;
+	std::function<std::basic_string<std::uint8_t>(void*)> AudioSeqFunc;
+	std::function<std::basic_string<std::uint8_t>(void*)> MetaFunc;
+
+	void* arg;
+	FLVFramePacket() :arg(nullptr)
 	{
-		
+		type = "video";
 	}
 };
 
@@ -61,22 +65,32 @@ public:
 private:
 	std::basic_string<std::uint8_t> GenerateFLVTagHeader(FLV_TAG_TYPE t, unsigned int bodySize, unsigned int timeStamp);
 
-	std::basic_string<std::uint8_t> GenerateAVCSequenceHeader(const std::basic_string<std::uint8_t>& sps, const std::basic_string<std::uint8_t>& pps);
+	std::basic_string<std::uint8_t> videoSequenceTag();
+
+	std::basic_string<std::uint8_t> metaTag()
+	{
+		return m_meta;
+	}
 
 	std::basic_string<std::uint8_t> PackNalus(std::vector<std::basic_string<std::uint8_t>>& vn, bool iFrame);
 
-	std::basic_string<std::uint8_t> GenerateVideoFVLTag(std::vector<std::basic_string<std::uint8_t>>& nalus, unsigned int timeStamp, bool iFrame);
+	std::basic_string<std::uint8_t> GenerateVideoFLVTag(std::vector<std::basic_string<std::uint8_t>>& nalus, unsigned int timeStamp, bool iFrame);
 
-	std::basic_string<std::uint8_t> GenerateAudioTagHead();
+	std::basic_string<std::uint8_t> audioSequenceTag();
+
+	std::basic_string<std::uint8_t> GenerateAudioFLVTag(const std::basic_string<std::uint8_t>& data, unsigned int timeStamp);
 
 	std::basic_string<std::uint8_t> onMeta(double width, double heigth, double frameRate);
 
 	void GetNalus(const std::basic_string<std::uint8_t>& data, std::vector<std::basic_string<std::uint8_t>>& vn);
 private:
-	std::basic_string<std::uint8_t> m_videoSequenceHeader;
-	std::basic_string<std::uint8_t> m_audioSequenceHeader;
+
 	std::basic_string<std::uint8_t> m_meta;
 	unsigned int pppss = 0;
+
+	std::basic_string<std::uint8_t> sps;
+	std::basic_string<std::uint8_t> pps;
+
 	FLVCallback m_cb;
 	void* m_arg;
 };

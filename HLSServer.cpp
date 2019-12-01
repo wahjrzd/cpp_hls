@@ -3,6 +3,7 @@
 #include "StreamDistribution.h"
 #include "WinUtility.h"
 #include "M3U8Client.h"
+#include "httpflv/FLVClient.h"
 #include <cpprest/filestream.h>
 #include "Config.h"
 
@@ -174,6 +175,71 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 					msg.headers().add(U("Connection"), U("close"));
 					msg.reply(web::http::status_codes::NotFound, v);
 					std::wcout << e.what() << std::endl;
+				}
+			}
+			else if (fn.substr(pos) == ".flv")
+			{
+				if (uuid.empty())
+				{
+					std::string url = m_pCfg->streamMap[streamid];
+					if (url.empty())
+					{
+						std::vector<std::pair<utility::string_t, web::json::value>> kv;
+						kv.push_back({ U("error"),web::json::value::string(U("specify stream not found")) });
+						web::json::value v = web::json::value::object(kv);
+
+						msg.reply(web::http::status_codes::NotFound, v);
+						return;
+					}
+
+					uuid = WinUtility::CreateXID();
+					EnterCriticalSection(&m_disLock);
+					auto it = m_distributions.find(streamid);
+					if (it == m_distributions.end())
+					{
+						StreamDistribution* psd = new StreamDistribution(streamid, url);
+						psd->Run();
+						m_distributions.insert({ streamid,psd });
+
+						FLVClient* flv = new FLVClient();
+						psd->AddFLVClient(uuid, flv);
+					}
+					else
+					{
+						FLVClient* flv = new FLVClient();
+						it->second->AddFLVClient(uuid, flv);
+					}
+					LeaveCriticalSection(&m_disLock);
+
+					char m3u8[512];
+					
+					sprintf_s(m3u8, "http://%ws:%hu/live/%s/%s?id=%s", m_ip.c_str(), m_port, streamid.c_str(),
+						fn.c_str(), uuid.c_str());
+
+					msg.headers().add(U("Location"), m3u8);
+					msg.reply(web::http::status_codes::Found);
+				}
+				else
+				{
+					FLVClient* pflv = nullptr;
+					EnterCriticalSection(&m_disLock);
+					auto it = m_distributions.find(streamid);
+					if (it != m_distributions.end())
+						pflv = it->second->GetFLVClient(uuid);
+					LeaveCriticalSection(&m_disLock);
+
+					if (pflv == nullptr)
+						return;
+
+					while (true)
+					{
+						auto data = pflv->GetTagData();
+						if (data.empty())
+							break;
+						
+					}
+
+					it->second->RemoveFLVClient(uuid);
 				}
 			}
 			else

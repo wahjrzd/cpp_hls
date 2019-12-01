@@ -16,6 +16,9 @@
     <Filter Include="RtspClient">
       <UniqueIdentifier>{961fcaae-30dc-470b-b64a-ffbcd6d91b45}</UniqueIdentifier>
     </Filter>
+    <Filter Include="httpflv">
+      <UniqueIdentifier>{471b5ceb-1b58-48dd-9565-cd7d143dd343}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -54,6 +57,15 @@
     <ClInclude Include="Config.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="httpflv\AMF.h">
+      <Filter>httpflv</Filter>
+    </ClInclude>
+    <ClInclude Include="httpflv\FLVPacker.h">
+      <Filter>httpflv</Filter>
+    </ClInclude>
+    <ClInclude Include="httpflv\FLVClient.h">
+      <Filter>httpflv</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -91,6 +103,15 @@
     </ClCompile>
     <ClCompile Include="Config.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="httpflv\AMF.cpp">
+      <Filter>httpflv</Filter>
+    </ClCompile>
+    <ClCompile Include="httpflv\FLVPacker.cpp">
+      <Filter>httpflv</Filter>
+    </ClCompile>
+    <ClCompile Include="httpflv\FLVClient.cpp">
+      <Filter>httpflv</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

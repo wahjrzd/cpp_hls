@@ -8,6 +8,7 @@
 
 class RtspClient;
 class M3U8Client;
+class FLVClient;
 
 class StreamDistribution
 {
@@ -21,9 +22,13 @@ public:
 	M3U8Client* GetClient(const std::string& id);
 	size_t GetClientCount();
 
+	void AddFLVClient(const std::string& id, FLVClient* cli);
+	FLVClient* GetFLVClient(const std::string& id);
+	void RemoveFLVClient(const std::string& id);
+
 	void flvInputData(const FrameInfo& f)
 	{
-		if (flvPacker)
+		if (m_startFLVPacket.load())
 		{
 			if (f.mediaType == "video")
 				flvPacker->deliverVideoESPacket(f.data, f.timeStamp, f.frameType == 5 ? true : false);
@@ -51,14 +56,19 @@ private:
 private:
 	TsPacker* pPacker;
 	std::wstring m_dir;
+	std::atomic_bool m_startTSPacket;
 private:
 	FLVPacker *flvPacker;
+	std::atomic_bool m_startFLVPacket;
 private:
 	std::future<unsigned int> m_checkFuture;
 	HANDLE m_checkEvent;
 private:
 	CRITICAL_SECTION m_clientLock;
 	std::map<std::string, M3U8Client*> m_clients;
+
+	CRITICAL_SECTION m_flvClientLock;
+	std::map<std::string, FLVClient*> m_flvClients;
 
 	std::future<unsigned int> m_packetFuture;
 	CRITICAL_SECTION m_frameLock;

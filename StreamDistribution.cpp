@@ -3,15 +3,18 @@
 #include <iostream>
 #include "WinUtility.h"
 #include "M3U8Client.h"
+#include "httpflv/FLVClient.h"
 #include <time.h>
 
 StreamDistribution::StreamDistribution(const std::string& id, std::string& url) :pstream(nullptr),
 m_uri(url),
 m_streamID(id),
 m_index(0),
-flvPacker(nullptr)
+m_startTSPacket(false),
+m_startFLVPacket(false)
 {
 	InitializeCriticalSection(&m_clientLock);
+	InitializeCriticalSection(&m_flvClientLock);
 	InitializeCriticalSection(&m_frameLock);
 	InitializeConditionVariable(&m_frameCondition);
 
@@ -63,11 +66,14 @@ StreamDistribution::~StreamDistribution()
 	
 	CloseHandle(m_checkEvent);
 	DeleteCriticalSection(&m_clientLock);
+	DeleteCriticalSection(&m_flvClientLock);
 	DeleteCriticalSection(&m_frameLock);
 }
 
 void StreamDistribution::AddClient(const std::string& id, M3U8Client* cli)
 {
+	m_startTSPacket.store(true);
+
 	EnterCriticalSection(&m_clientLock);
 	auto it = m_clients.find(id);
 	if (it != m_clients.end())
@@ -144,16 +150,20 @@ unsigned StreamDistribution::WrapPacket()
 			return 0;
 		});
 
-		if (f.mediaType == "video")
+		if (m_startTSPacket.load())
 		{
-			if (f.frameType == 5) {
-				pPacker->deliverVideoESPacket(f.data.c_str(), f.data.size(), f.timeStamp, true);
+			if (f.mediaType == "video")
+			{
+				if (f.frameType == 5) {
+					pPacker->deliverVideoESPacket(f.data.c_str(), f.data.size(), f.timeStamp, true);
+				}
+				else if (f.frameType != 0)
+					pPacker->deliverVideoESPacket(f.data.c_str(), f.data.size(), f.timeStamp, false);
+				else
+					break;
 			}
-			else if (f.frameType != 0)
-				pPacker->deliverVideoESPacket(f.data.c_str(), f.data.size(), f.timeStamp, false);
-			else
-				break;
 		}
+		
 
 		task.get();
 	}
@@ -222,6 +232,20 @@ unsigned StreamDistribution::wrapFlvcb(FLVFramePacket& f)
 	//fwrite(FLV_FILE_HEADER, 1, 13, pf);
 		//fwrite(f.meta.c_str(), 1, f.meta.size(), pf);
 		//fwrite(f.videoSequence.c_str(), 1, f.videoSequence.size(), pf);
+	EnterCriticalSection(&m_flvClientLock);
+	auto it = m_flvClients.begin();
+	if (it != m_flvClients.end())
+	{
+		if (it->second->newClient)
+		{
+			it->second->HasNewFLVTag(FLV_FILE_HEADER);
+			it->second->HasNewFLVTag(f.MetaFunc(f.arg));
+			it->second->HasNewFLVTag(f.VideoSeqFunc(f.arg));
+			it->second->HasNewFLVTag(f.AudioSeqFunc(f.arg));
+		}
+		it->second->HasNewFLVTag(f.data);
+	}
+	LeaveCriticalSection(&m_flvClientLock);
 	return 0;
 }
 
@@ -273,4 +297,40 @@ unsigned StreamDistribution::WrapCheck()
 			break;
 	}
 	return 0;
+}
+
+void StreamDistribution::AddFLVClient(const std::string& id, FLVClient* cli)
+{
+	m_startFLVPacket.store(true);
+
+	EnterCriticalSection(&m_flvClientLock);
+	auto it = m_flvClients.find(id);
+	if (it != m_flvClients.end())
+	{
+		LeaveCriticalSection(&m_flvClientLock);
+		std::cout << "already exists" << std::endl;
+		return;
+	}
+	m_flvClients.insert({ id,cli });
+	LeaveCriticalSection(&m_flvClientLock);
+}
+
+FLVClient* StreamDistribution::GetFLVClient(const std::string& id)
+{
+	FLVClient* flv = nullptr;
+	EnterCriticalSection(&m_flvClientLock);
+	auto it = m_flvClients.find(id);
+	if (it != m_flvClients.end())
+		flv = it->second;
+	LeaveCriticalSection(&m_flvClientLock);
+	return flv;
+}
+
+void StreamDistribution::RemoveFLVClient(const std::string& id)
+{
+	EnterCriticalSection(&m_flvClientLock);
+	m_flvClients.erase(id);
+	if (m_flvClients.empty())
+		m_startFLVPacket.store(false);
+	LeaveCriticalSection(&m_flvClientLock);
 }
