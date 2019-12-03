@@ -58,7 +58,8 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 
 void FLVPacker::deliverAudioESPacket(const std::basic_string<std::uint8_t>& frame, unsigned int pts)
 {
-	auto data = GenerateAudioFLVTag(frame, pts);
+	std::basic_string<std::uint8_t> xx(frame.c_str() + 7, frame.size() - 7);
+	auto data = GenerateAudioFLVTag(xx, pts);
 	if (m_cb)
 	{
 		FLVFramePacket f;
@@ -190,7 +191,7 @@ std::basic_string<std::uint8_t> FLVPacker::GenerateAudioFLVTag(const std::basic_
 	s.append(a, 2);
 	s.append(data);
 
-	auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_AUDIO, s.size(), 0);
+	auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_AUDIO, s.size(), timeStamp);
 	unsigned int previousSize = s.size() + 11;
 	a[0] = (previousSize >> 24) & 0xff;
 	a[1] = (previousSize >> 16) & 0xff;
@@ -256,7 +257,7 @@ std::basic_string<std::uint8_t> FLVPacker::onMeta(double width, double heigth, d
 	std::basic_string<std::uint8_t> s;
 
 	std::uint8_t a[5];
-	std::uint32_t arraySize = 8;
+	std::uint32_t arraySize = 11;
 	a[0] = static_cast<std::uint8_t>(AMFDataType::AMF_ECMA_ARRAY);
 	a[1] = (arraySize >> 24) & 0xff;
 	a[2] = (arraySize >> 16) & 0xff;
@@ -274,12 +275,13 @@ std::basic_string<std::uint8_t> FLVPacker::onMeta(double width, double heigth, d
 	str.append(AMF::AMF_EncodePropertyWithDouble(strFramerate, frameRate));
 	str.append(AMF::AMF_EncodePropertyWithDouble(strVideocodecid, 7.0));
 	str.append(AMF::AMF_EncodePropertyWithString(strEncoder, "Lavf58.27.103"));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strFilesize, 0));
+	//str.append(AMF::AMF_EncodePropertyWithDouble(strFilesize, 0));
 	
-	//str.append(AMF::AMF_EncodePropertyWithDouble(strAudiodatarate, 16000));
-	//str.append(AMF::AMF_EncodePropertyWithDouble(strAudiosamperate, 44000));
-	//str.append(AMF::AMF_EncodePropertyWithDouble(strAudiosamplesize, 16));
-	//str.append(AMF::AMF_EncodePropertyWithDouble(strAudiocodecid, 10.0));
+	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiodatarate, 9));
+	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiosamperate, 16000));
+	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiosamplesize, 16));
+	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiocodecid, 10.0));
+
 	str.push_back(0);
 	str.push_back(0);
 	str.push_back(static_cast<char>(AMFDataType::AMF_OBJECT_END));

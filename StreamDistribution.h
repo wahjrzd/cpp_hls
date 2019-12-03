@@ -80,5 +80,7 @@ private:
 	char items[3][64];
 	unsigned int m_index;
 	std::string m_header;
+
+	//FILE* pf;
 };
 

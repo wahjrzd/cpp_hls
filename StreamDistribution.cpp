@@ -30,6 +30,8 @@ m_startFLVPacket(false)
 	m_header = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-ALLOW-CACHE:NO\n#EXT-X-TARGETDURATION:4\n";
 
 	m_checkEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+
+	//fopen_s(&pf, "1.flv", "wb");
 }
 
 StreamDistribution::~StreamDistribution()
@@ -68,6 +70,8 @@ StreamDistribution::~StreamDistribution()
 	DeleteCriticalSection(&m_clientLock);
 	DeleteCriticalSection(&m_flvClientLock);
 	DeleteCriticalSection(&m_frameLock);
+
+	//fclose(pf);
 }
 
 void StreamDistribution::AddClient(const std::string& id, M3U8Client* cli)
@@ -229,21 +233,27 @@ unsigned StreamDistribution::flvcb(FLVFramePacket& f, void* arg)
 
 unsigned StreamDistribution::wrapFlvcb(FLVFramePacket& f)
 {
-	//fwrite(FLV_FILE_HEADER, 1, 13, pf);
-		//fwrite(f.meta.c_str(), 1, f.meta.size(), pf);
-		//fwrite(f.videoSequence.c_str(), 1, f.videoSequence.size(), pf);
 	EnterCriticalSection(&m_flvClientLock);
 	auto it = m_flvClients.begin();
 	if (it != m_flvClients.end())
 	{
 		if (it->second->newClient)
 		{
-			it->second->HasNewFLVTag(FLV_FILE_HEADER);
-			it->second->HasNewFLVTag(f.MetaFunc(f.arg));
-			it->second->HasNewFLVTag(f.VideoSeqFunc(f.arg));
-			it->second->HasNewFLVTag(f.AudioSeqFunc(f.arg));
+			auto aa = f.MetaFunc(f.arg);
+			auto bb = f.VideoSeqFunc(f.arg);
+			auto dd = f.AudioSeqFunc(f.arg);
+			std::basic_string<std::uint8_t> cc(FLV_FILE_HEADER, 13);// = FLV_FILE_HEADER;
+			cc.append(aa);
+			cc += bb;
+			cc += dd;
+			it->second->HasNewFLVTag(cc);
+
+			//fwrite(cc.c_str(), 1, cc.size(), pf);
+			it->second->newClient = false;
 		}
 		it->second->HasNewFLVTag(f.data);
+
+		//fwrite(f.data.c_str(), 1, f.data.size(), pf);
 	}
 	LeaveCriticalSection(&m_flvClientLock);
 	return 0;
@@ -264,8 +274,12 @@ size_t StreamDistribution::GetClientCount()
 {
 	size_t count = 0;
 	EnterCriticalSection(&m_clientLock);
-	count = m_clients.size();
+	count += m_clients.size();
 	LeaveCriticalSection(&m_clientLock);
+
+	EnterCriticalSection(&m_flvClientLock);
+	count += m_flvClients.size();
+	LeaveCriticalSection(&m_flvClientLock);
 	return count;
 }
 

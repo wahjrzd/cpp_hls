@@ -5,6 +5,7 @@
 #include "M3U8Client.h"
 #include "httpflv/FLVClient.h"
 #include <cpprest/filestream.h>
+#include <cpprest/producerconsumerstream.h>
 #include "Config.h"
 
 #pragma warning(disable:4996)
@@ -163,7 +164,7 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 						[=](concurrency::streams::istream is) {
 
 						msg.reply(web::http::status_codes::OK, is, videoMP2T);
-
+			
 					}
 					).get();
 				}
@@ -174,7 +175,7 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 					web::json::value v = web::json::value::object(kv);
 					msg.headers().add(U("Connection"), U("close"));
 					msg.reply(web::http::status_codes::NotFound, v);
-					std::wcout << e.what() << std::endl;
+					std::wcout << e.what() << "ts file exception" << std::endl;
 				}
 			}
 			else if (fn.substr(pos) == ".flv")
@@ -215,14 +216,19 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 					
 					sprintf_s(m3u8, "http://%ws:%hu/live/%s/%s?id=%s", m_ip.c_str(), m_port, streamid.c_str(),
 						fn.c_str(), uuid.c_str());
+					//msg.headers().add << "";
+					//msg.headers().add(U("Location"), m3u8);
 
-					msg.headers().add(U("Location"), m3u8);
-					msg.reply(web::http::status_codes::Found);
+					web::http::http_response resp(web::http::status_codes::Found);
+					resp.headers().add(U("Location"), m3u8);
+						//	msg.reply(web::http::status_codes::Found, );
+					msg.reply(resp);
 				}
 				else
 				{
 					FLVClient* pflv = nullptr;
 					EnterCriticalSection(&m_disLock);
+
 					auto it = m_distributions.find(streamid);
 					if (it != m_distributions.end())
 						pflv = it->second->GetFLVClient(uuid);
@@ -231,13 +237,28 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 					if (pflv == nullptr)
 						return;
 
+					web::http::http_response response(web::http::status_codes::OK);
+
+					concurrency::streams::producer_consumer_buffer<std::uint8_t> rwbuf;
+					concurrency::streams::basic_istream<uint8_t> stream(rwbuf);
+					
+					response.set_body(stream, U("video/x-flv"));
+
+					auto rep = msg.reply(response);
+
 					while (true)
 					{
 						auto data = pflv->GetTagData();
 						if (data.empty())
+						{
+							rwbuf.close(std::ios_base::out).wait();
 							break;
+						}
 						
+						rwbuf.putn_nocopy(data.c_str(), data.size());
+						rwbuf.sync().wait();
 					}
+					rep.wait();
 
 					it->second->RemoveFLVClient(uuid);
 				}
