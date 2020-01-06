@@ -1,10 +1,10 @@
 {
-"host":"192.168.4.104",
+"host":"192.168.4.101",
 "port":7878,
   "stream": [
     {
       "id": "abc",
-      "url": "rtsp://admin:186953asd@192.168.4.101/cam/realmonitor?channel=1&subtype=0"
+      "url": "rtsp://admin:186953asd@192.168.4.102/cam/realmonitor?channel=1&subtype=0"
     },
     {
       "id": "efg",

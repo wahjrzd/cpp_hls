@@ -13,6 +13,8 @@ FLVPacker::~FLVPacker()
 
 void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& frame, unsigned int pts, bool iFrame)
 {
+	if (pppss == 0)
+		pppss = pts;
 	std::vector<std::basic_string<std::uint8_t>> vn;
 	auto pp = frame.c_str();
 	GetNalus(frame, vn);
@@ -20,7 +22,7 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 	{
 		if (sps.empty() && pps.empty())
 		{
-			if (vn.size() > 3)
+			if (vn.size() >= 3)
 			{
 				sps = vn[0];
 				pps = vn[1];
@@ -31,11 +33,11 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 					f.VideoSeqFunc = std::bind(&FLVPacker::videoSequenceTag, this);
 					f.AudioSeqFunc = std::bind(&FLVPacker::audioSequenceTag, this);
 					f.MetaFunc = std::bind(&FLVPacker::metaTag, this);
-					f.data = std::move(GenerateVideoFLVTag(vn, pppss, iFrame));
+					f.data = std::move(GenerateVideoFLVTag(vn, pts - pppss, iFrame));
 					f.arg = this;
 					m_cb(f, m_arg);
 				}
-				pppss += 40;
+				//pppss += 40;
 			}
 		}
 		else
@@ -58,8 +60,11 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 
 void FLVPacker::deliverAudioESPacket(const std::basic_string<std::uint8_t>& frame, unsigned int pts)
 {
+	if (lastPts == 0)
+		lastPts = pts;
+
 	std::basic_string<std::uint8_t> xx(frame.c_str() + 7, frame.size() - 7);
-	auto data = GenerateAudioFLVTag(xx, pts);
+	auto data = GenerateAudioFLVTag(frame, pts - lastPts);
 	if (m_cb)
 	{
 		FLVFramePacket f;

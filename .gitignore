@@ -1,0 +1,12 @@
+﻿################################################################################
+# 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
+################################################################################
+
+/bin/debug
+/Debug/SimpleHls.tlog
+/Debug
+/.vs/config
+/Release/SimpleHls.tlog
+/Release
+/1.flv
+/.vs/SimpleHls/v15

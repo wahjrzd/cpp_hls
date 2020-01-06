@@ -221,7 +221,6 @@ void HLSServer::HandeHttpGet(web::http::http_request msg)
 
 					web::http::http_response resp(web::http::status_codes::Found);
 					resp.headers().add(U("Location"), m3u8);
-						//	msg.reply(web::http::status_codes::Found, );
 					msg.reply(resp);
 				}
 				else

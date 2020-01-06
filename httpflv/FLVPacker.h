@@ -87,7 +87,7 @@ private:
 
 	std::basic_string<std::uint8_t> m_meta;
 	unsigned int pppss = 0;
-
+	unsigned int lastPts = 0;
 	std::basic_string<std::uint8_t> sps;
 	std::basic_string<std::uint8_t> pps;
 

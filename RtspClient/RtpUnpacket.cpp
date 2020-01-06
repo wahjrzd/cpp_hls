@@ -218,7 +218,7 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 			}
 		
 			ADTS[3] = (m_soundTrack == 2) ? 0x80 : 0x40;//soundtrack 1
-			int len = sz - 2 + 7;
+			int len = sz - 4 + 7;//2 字节au_length 紧跟后两字节high 13bit au Length 3bit 000
 			//                                     4     len 5      6 
 			ADTS[4] = (len & 0xfff8) >> 3;//00 1111 1111 111 1 1111 1111 1100
 			ADTS[5] = (len << 5) | 0x1F;//低三位
@@ -230,9 +230,9 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 			ff.mediaType = "audio";
 			ff.codecType = m_audioCodec;
 			ff.data.append(ADTS, 7);
-			ff.data.append(frameData.c_str() + 2, frameData.size() - 2);
+			ff.data.append(frameData.c_str() + 4, frameData.size() - 4);
 			ff.timeStamp = timeStamp;
-
+			ff.samplingRate = m_audioSampleRate;
 			m_cb(ff, pUsr);
 		}
 		frameData.clear();

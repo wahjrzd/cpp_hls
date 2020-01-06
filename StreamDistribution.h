@@ -33,7 +33,9 @@ public:
 			if (f.mediaType == "video")
 				flvPacker->deliverVideoESPacket(f.data, f.timeStamp, f.frameType == 5 ? true : false);
 			else
-				flvPacker->deliverAudioESPacket(f.data, f.timeStamp);
+			{
+				flvPacker->deliverAudioESPacket(f.data, f.timeStamp / (f.samplingRate / 1000));
+			}
 		}
 	}
 private:
@@ -81,6 +83,6 @@ private:
 	unsigned int m_index;
 	std::string m_header;
 
-	//FILE* pf;
+	FILE* pf;
 };
 

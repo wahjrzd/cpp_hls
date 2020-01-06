@@ -349,7 +349,8 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 				{
 					fAudioControlPath = m.Attributes["control"];
 					auto rtpmap = m.Attributes["rtpmap"];
-					
+					auto fmtp = m.Attributes["fmtp"];//for MPEG4-GENERIC 
+
 					char p1[4];//payload
 					char p2[32];//codec
 					char p3[8];//sampling

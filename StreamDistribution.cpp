@@ -31,7 +31,7 @@ m_startFLVPacket(false)
 
 	m_checkEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-	//fopen_s(&pf, "1.flv", "wb");
+	fopen_s(&pf, "1.flv", "wb");
 }
 
 StreamDistribution::~StreamDistribution()
