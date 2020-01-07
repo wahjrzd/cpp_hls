@@ -15,6 +15,12 @@ struct Media
 		port = 0;
 	}
 };
+//fmtp
+struct FMTPField
+{
+	int payload;
+	std::map<std::string, std::string> kv;
+};
 
 class SdpParse
 {
@@ -24,6 +30,8 @@ public:
 
 	int parse(const std::string& msg);
 	bool GetMedia(const std::string& Type, Media& m);
+
+	void ParseFmtp(FMTPField& fmtp, const std::string& src);
 private:
 	std::vector<std::string> SplitString(const std::string& src, char delim = ' ');
 	void GetMediaInfo(std::stringstream& ss, std::string& line);

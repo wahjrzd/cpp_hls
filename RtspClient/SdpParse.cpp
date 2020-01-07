@@ -49,19 +49,13 @@ bool SdpParse::GetMedia(const std::string& Type, Media& m)
 std::vector<std::string> SdpParse::SplitString(const std::string& src, char delim)
 {
 	std::vector<std::string> v;
-	size_t i = 0;
-	auto pos = src.find(delim, i);
-	while (pos != src.npos)
+	std::stringstream ss(src);
+	std::string item;
+	while (std::getline(ss, item, delim))
 	{
-		auto item = src.substr(i, pos - i);
-		if (!item.empty())
-			v.push_back(item);
-		i = pos + 1;
-
-		pos = src.find(delim, i);
-		if (pos == src.npos && i < src.size())
-			pos = src.size();
+		v.push_back(item);
 	}
+
 	return v;
 }
 
@@ -111,4 +105,29 @@ void SdpParse::GetMediaInfo(std::stringstream& ss, std::string& line)
 			break;
 	}
 	medias.push_back(m);
+}
+
+void SdpParse::ParseFmtp(FMTPField& fmtp, const std::string& src)
+{
+	auto pos = src.find(' ');
+	if (pos < 5 && pos != src.npos)
+	{
+		fmtp.payload = std::stoi(src.substr(0, pos));
+		std::stringstream ss(src.substr(pos + 1));
+
+		std::string item;
+		while (std::getline(ss, item, ';'))
+		{
+			if (item[0] == ' ')
+				item.erase(item.begin());
+			auto pos = item.find('=');
+			if (pos != item.npos)
+			{
+				item.substr(pos);
+				fmtp.kv.insert({ item.substr(0,pos) ,item.substr(pos + 1) });
+			}
+		}
+	}
+
+	
 }

@@ -252,7 +252,7 @@ unsigned int RtspClient::WrapHandleData()
 		else if (ret == 1)
 		{
 			ret = ::recv(m_cli, &fResponseBuffer[fResponseBytesAlreadySeen], fResponseBufferBytesLeft, 0);
-			if (ret <= 0 && fResponseBufferBytesLeft != 0)
+			if (ret <= 0 && fResponseBufferBytesLeft > 0)
 			{
 				fprintf(stderr, "recv data failed:%d\n", WSAGetLastError());
 				break;
@@ -337,11 +337,18 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 				{
 					fVideoControlPath = m.Attributes["control"];
 					auto rtpmap = m.Attributes["rtpmap"];
+					auto fmtp = m.Attributes["fmtp"];
 					char p1[32];
 					char p2[32];
 					char p3[32];
 					if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]", p1, p2, p3) == 3)
 						rtp->SetVideoCodecInfo(p2, atoi(p3));
+
+					if (!fmtp.empty())
+					{
+						FMTPField fmt;
+						sdp.ParseFmtp(fmt, fmtp);
+					}
 
 					hasVideo = true;
 				}
@@ -349,8 +356,8 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 				{
 					fAudioControlPath = m.Attributes["control"];
 					auto rtpmap = m.Attributes["rtpmap"];
-					auto fmtp = m.Attributes["fmtp"];//for MPEG4-GENERIC 
-
+					auto fmtp = m.Attributes["fmtp"];
+					
 					char p1[4];//payload
 					char p2[32];//codec
 					char p3[8];//sampling
@@ -360,6 +367,12 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 					else if (sscanf(rtpmap.c_str(), "%[0-9] %[^/]/%[0-9]", p1, p2, p3) == 3)
 						rtp->SetAudioCodecInfo(p2, atoi(p3));
 					
+					if (_strcmpi(p2, "mpeg4-generic") == 0)
+					{
+						FMTPField fmt;
+						sdp.ParseFmtp(fmt, fmtp);
+					}
+
 					hasAudio = true;
 				}
 			}
