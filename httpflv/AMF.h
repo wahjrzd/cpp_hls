@@ -24,55 +24,31 @@ enum class AMFDataType
 	AMF_INVALID = 0xff
 };
 
-const std::string strOnMetaData = "onMetaData";
-const std::string strDuration = "duration";
-const std::string strWidth = "width";
-const std::string strHeight = "height";
-const std::string strVideodatarate = "videodatarate";
-const std::string strFramerate = "framerate";
-const std::string strVideocodecid = "videocodecid";
-const std::string strAudiodatarate = "audiodatarate";
-const std::string strAudiosamperate = "audiosamplerate";
-const std::string strAudiosamplesize = "audiosamplesize";
-const std::string strStereo = "stereo";
-const std::string strAudiocodecid = "audiocodecid";
-const std::string strEncoder = "encoder";
-const std::string strFilesize = "filesize";
-
 class AMF
 {
 public:
 	AMF();
 	~AMF();
 
-	static unsigned char* AMF_EncodeBoolean(unsigned char* input, bool val);
+	unsigned char* AMF_EncodeString(const char* value, unsigned char* input);
 
-	static unsigned char* AMF_Encodestr(unsigned char* input, unsigned char* str, unsigned int sz);
+	unsigned char* AMF_EncodeNumber(double value, unsigned char* input);
 
-	static unsigned char* AMF_Encodenum(unsigned char* input, double val);
+	unsigned char* AMF_ArrayStart(int items, unsigned char* input);
 
-	template<typename T>
-	static unsigned char* AMF_tt(unsigned char* input, const std::string& propName, T val, unsigned int sz)
-	{
-		*input++ = (propName.size() >> 8) & 0xff;
-		*input++ = propName.size() & 0xff;
-		memcpy(input, propName.c_str(), propName.size());
-		input += propName.size();
+	unsigned char* AMF_EncodeArrayItem(const char* name, double value, unsigned char* input);
 
-		if (std::is_same<T, double>::value)
-			input = AMF_Encodenum(input, val);
-		else if (std::is_same<T, unsigned char*>::value)
-			input = AMF_Encodestr(input, val, sz);
-		return input;
-	}
+	unsigned char* AMF_EncodeArrayItem(const char* name, bool value, unsigned char* input);
 
-	static std::string AMF_EncodeString(const std::string& name);
+	unsigned char* AMF_EncodeArrayItem(const char* name, const char* value, unsigned char* input);
 
-	static std::string AMF_EncodeNumber(double val);
-
-	static std::string AMF_EncodePropertyWithString(const std::string& propertyName, const std::string& val);
-
-	static std::string AMF_EncodePropertyWithDouble(const std::string& propertyName, double val);
-
+	unsigned char* AMF_EndObject(unsigned char* input);
 	
+	unsigned char* AMF_EncodeBoolean(bool val, unsigned char* input);
+private:
+	unsigned char* AMF_EncodeInt16(int16_t value, unsigned char* input);
+
+	unsigned char* AMF_EncodeInt32(int32_t value, unsigned char* input);
+private:
+	unsigned char* m_buf;
 };

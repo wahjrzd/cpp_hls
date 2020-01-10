@@ -2,94 +2,107 @@
 
 AMF::AMF()
 {
+	m_buf = new unsigned char[32];
 }
 
 AMF::~AMF()
 {
+	delete m_buf;
 }
 
-unsigned char* AMF::AMF_EncodeBoolean(unsigned char* input, bool val)
+unsigned char* AMF::AMF_EncodeBoolean(bool val, unsigned char* input)
 {
 	*input++ = static_cast<unsigned char>(AMFDataType::AMF_BOOLEAN);
 	*input++ = val == true ? 0x01 : 0x00;
 	return input;
 }
 
-unsigned char* AMF::AMF_Encodestr(unsigned char* input, unsigned char* str, unsigned int sz)
+unsigned char* AMF::AMF_EncodeString(const char* value, unsigned char* input)
 {
+	auto strLen = strlen(value);
 	*input++ = static_cast<unsigned char>(AMFDataType::AMF_STRING);
-	*input++ = (sz >> 8) & 0xff;
-	*input++ = sz & 0xff;
-	memcpy(input, str, sz);
-	input += sz;
+	input = AMF_EncodeInt16(strLen, input);
+	memcpy(input, value, strLen);
+	input += strLen;
 	return input;
 }
 
-unsigned char* AMF::AMF_Encodenum(unsigned char* input, double val)
+unsigned char* AMF::AMF_EncodeInt16(int16_t value, unsigned char* input)
+{
+	*input++ = value >> 8;
+	*input++ = value;
+	return input;
+}
+
+unsigned char* AMF::AMF_EncodeInt32(int32_t value, unsigned char* input)
+{
+	*input++ = value >> 24;
+	*input++ = value >> 16;
+	*input++ = value >> 8;
+	*input++ = value;
+	return input;
+}
+
+unsigned char* AMF::AMF_EncodeNumber(double value, unsigned char* input)
 {
 	*input++ = static_cast<unsigned char>(AMFDataType::AMF_NUMBER);
-	unsigned char* ci = (unsigned char*)&val;
-	*input++ = ci[7];
-	*input++ = ci[6];
-	*input++ = ci[5];
-	*input++ = ci[4];
-	*input++ = ci[3];
-	*input++ = ci[2];
-	*input++ = ci[1];
-	*input++ = ci[0];
+	unsigned char* dv = (unsigned char*)&value;
+	*input++ = dv[7];
+	*input++ = dv[6];
+	*input++ = dv[5];
+	*input++ = dv[4];
+	*input++ = dv[3];
+	*input++ = dv[2];
+	*input++ = dv[1];
+	*input++ = dv[0];
+
 	return input;
 }
 
-std::string AMF::AMF_EncodeString(const std::string& name)
+unsigned char* AMF::AMF_ArrayStart(int items, unsigned char* input)
 {
-	std::string s;
-	char a[3];
-	a[0] = static_cast<char>(AMFDataType::AMF_STRING);
-	a[1] = (name.size() >> 8) & 0xff;
-	a[2] = name.size() & 0xff;
-	s.append(a, 3);
-	s.append(name);
-	return s;
+	*input++ = static_cast<unsigned char>(AMFDataType::AMF_ECMA_ARRAY);
+	input = AMF_EncodeInt32(items, input);
+	return input;
 }
 
-std::string AMF::AMF_EncodeNumber(const double val)
+unsigned char* AMF::AMF_EncodeArrayItem(const char* name, double value, unsigned char* input)
 {
-	std::string s;
-	char* ci = (char*)&val;
-	char a[9];
-	a[0] = static_cast<char>(AMFDataType::AMF_NUMBER);
-	a[1] = ci[7];
-	a[2] = ci[6];
-	a[3] = ci[5];
-	a[4] = ci[4];
-	a[5] = ci[3];
-	a[6] = ci[2];
-	a[7] = ci[1];
-	a[8] = ci[0];
-	s.append(a, 9);
-	return s;
+	auto strLen = strlen(name);
+	input = AMF_EncodeInt16(strLen, input);
+	memcpy(input, name, strLen);
+	input += strLen;
+
+	input = AMF_EncodeNumber(value, input);
+	return input;
 }
 
-std::string AMF::AMF_EncodePropertyWithString(const std::string& propertyName, const std::string& val)
+unsigned char* AMF::AMF_EncodeArrayItem(const char* name, bool value, unsigned char* input)
 {
-	std::string s;
-	char a[2];
-	a[0] = (propertyName.size() >> 8) & 0xff;
-	a[1] = propertyName.size() & 0xff;
-	s.append(a, 2);
-	s.append(propertyName);
-	s.append(AMF_EncodeString(val));
-	return s;
+	auto strLen = strlen(name);
+	input = AMF_EncodeInt16(strLen, input);
+	memcpy(input, name, strLen);
+	input += strLen;
+
+	input = AMF_EncodeBoolean(value, input);
+	return input;
 }
 
-std::string AMF::AMF_EncodePropertyWithDouble(const std::string& propertyName, double val)
+unsigned char* AMF::AMF_EncodeArrayItem(const char* name, const char* value, unsigned char* input)
 {
-	std::string s;
-	char a[2];
-	a[0] = (propertyName.size() >> 8) & 0xff;
-	a[1] = propertyName.size() & 0xff;
-	s.append(a, 2);
-	s.append(propertyName);
-	s.append(AMF_EncodeNumber(val));
-	return s;
+	auto strLen = strlen(name);
+	input = AMF_EncodeInt16(strLen, input);
+	memcpy(input, name, strLen);
+	input += strLen;
+
+	input = AMF_EncodeString(value, input);
+	return input;
+}
+
+unsigned char* AMF::AMF_EndObject(unsigned char* input)
+{
+	*input++ = 0;
+	*input++ = 0;
+	*input++ = static_cast<unsigned char>(AMFDataType::AMF_OBJECT_END);
+	return input;
 }

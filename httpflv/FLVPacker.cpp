@@ -48,23 +48,23 @@ void FLVPacker::deliverVideoESPacket(const std::basic_string<std::uint8_t>& fram
 				f.VideoSeqFunc = std::bind(&FLVPacker::videoSequenceTag, this);
 				f.AudioSeqFunc = std::bind(&FLVPacker::audioSequenceTag, this);
 				f.MetaFunc = std::bind(&FLVPacker::metaTag, this);
-				f.data = std::move(GenerateVideoFLVTag(vn, pppss, iFrame));
+				f.data = std::move(GenerateVideoFLVTag(vn, pts - pppss, iFrame));
 				f.arg = this;
 
 				m_cb(f, m_arg);
 			}
-			pppss += 40;
+			//pppss += 40;
 		}
 	}
 }
 
 void FLVPacker::deliverAudioESPacket(const std::basic_string<std::uint8_t>& frame, unsigned int pts)
 {
+	return;
 	if (lastPts == 0)
 		lastPts = pts;
-
 	std::basic_string<std::uint8_t> xx(frame.c_str() + 7, frame.size() - 7);
-	auto data = GenerateAudioFLVTag(frame, pts - lastPts);
+	auto data = GenerateAudioFLVTag(xx, pts - lastPts);
 	if (m_cb)
 	{
 		FLVFramePacket f;
@@ -168,7 +168,8 @@ std::basic_string<std::uint8_t> FLVPacker::audioSequenceTag()
 {
 	std::basic_string<std::uint8_t> s;
 	std::uint8_t a[4];
-	a[0] = (10 << 4) | 0x0F;//1010 1111 aac soundrate2 soundsize1 stereo1
+	//a[0] = (10 << 4) | 0x0F;//1010 1111 aac soundrate2 soundsize1 stereo1
+	a[0] = (10 << 4) | 0x0E;//1010 1111 aac soundrate2 soundsize1 stereo1
 	a[1] = 0x00;//sounddata
 	a[2] = 0x14;//00010 100  //16000kz 1soundtrack
 	a[3] = 0x08;//0 0001 0 0 0
@@ -191,8 +192,9 @@ std::basic_string<std::uint8_t> FLVPacker::GenerateAudioFLVTag(const std::basic_
 {
 	std::basic_string<std::uint8_t> s;
 	std::uint8_t a[4];
-	a[0] = (10 << 4) | 0x0F;
-	a[1] = 0;
+	//a[0] = (10 << 4) | 0x0F;
+	a[0] = (10 << 4) | 0x0E;
+	a[1] = 1;
 	s.append(a, 2);
 	s.append(data);
 
@@ -258,48 +260,35 @@ void FLVPacker::GetNalus(const std::basic_string<std::uint8_t>& data, std::vecto
 }
 
 std::basic_string<std::uint8_t> FLVPacker::onMeta(double width, double heigth, double frameRate)
-{
-	std::basic_string<std::uint8_t> s;
+{ 
+	unsigned char input[1024];
+	auto temp = input;
+	AMF amf;
+	temp = amf.AMF_EncodeString("onMetaData", temp);
+	temp = amf.AMF_ArrayStart(13, temp);
+	temp = amf.AMF_EncodeArrayItem("duration", 0., temp);
+	temp = amf.AMF_EncodeArrayItem("width", 1920.0, temp);
+	temp = amf.AMF_EncodeArrayItem("heigth", 1080.0, temp);
+	temp = amf.AMF_EncodeArrayItem("videodatarate", 0., temp);
+	temp = amf.AMF_EncodeArrayItem("framerate", 25.0, temp);
+	temp = amf.AMF_EncodeArrayItem("videocodecid", 7.0, temp);
+	temp = amf.AMF_EncodeArrayItem("audiodatarate", 0., temp);
+	temp = amf.AMF_EncodeArrayItem("audiosamplerate", 16000.0, temp);
+	temp = amf.AMF_EncodeArrayItem("audiosamplesize", 16.0, temp);
+	temp = amf.AMF_EncodeArrayItem("stereo", false, temp);
+	temp = amf.AMF_EncodeArrayItem("audiocodecid", 10.0, temp);
+	temp = amf.AMF_EncodeArrayItem("encoder", "Lavf57.36.100", temp);
+	temp = amf.AMF_EncodeArrayItem("filesize", 0.0, temp);
+	temp = amf.AMF_EndObject(temp);
+	auto xxxx = temp - input;
 
-	std::uint8_t a[5];
-	std::uint32_t arraySize = 11;
-	a[0] = static_cast<std::uint8_t>(AMFDataType::AMF_ECMA_ARRAY);
-	a[1] = (arraySize >> 24) & 0xff;
-	a[2] = (arraySize >> 16) & 0xff;
-	a[3] = (arraySize >> 8) & 0xff;
-	a[4] = arraySize & 0xff;
+	auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_META, xxxx, 0);
+	unsigned int previousSize = xxxx + 11;
+	*temp++ = (previousSize >> 24) & 0xff;
+	*temp++ = (previousSize >> 16) & 0xff;
+	*temp++ = (previousSize >> 8) & 0xff;
+	*temp++ = previousSize & 0xff;
 
-	std::string str;
-	str.append(AMF::AMF_EncodeString(strOnMetaData));
-	str.append((char*)a, 5);
-
-	str.append(AMF::AMF_EncodePropertyWithDouble(strDuration, 0.0));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strWidth, width));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strHeight, heigth));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strVideodatarate, 0.0));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strFramerate, frameRate));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strVideocodecid, 7.0));
-	str.append(AMF::AMF_EncodePropertyWithString(strEncoder, "Lavf58.27.103"));
-	//str.append(AMF::AMF_EncodePropertyWithDouble(strFilesize, 0));
-	
-	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiodatarate, 9));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiosamperate, 16000));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiosamplesize, 16));
-	str.append(AMF::AMF_EncodePropertyWithDouble(strAudiocodecid, 10.0));
-
-	str.push_back(0);
-	str.push_back(0);
-	str.push_back(static_cast<char>(AMFDataType::AMF_OBJECT_END));
-
-	auto tagHead = GenerateFLVTagHeader(FLV_TAG_TYPE::FLV_TAG_TYPE_META, str.size(), 0);
-	unsigned int previousSize = str.size() + 11;
-	a[0] = (previousSize >> 24) & 0xff;
-	a[1] = (previousSize >> 16) & 0xff;
-	a[2] = (previousSize >> 8) & 0xff;
-	a[3] = previousSize & 0xff;
-
-	s.append(tagHead);
-	s.append((std::uint8_t*)str.c_str(), str.size());
-	s.append(a, 4);
-	return s;
+	tagHead.append(input, xxxx + 4);
+	return tagHead;
 }
