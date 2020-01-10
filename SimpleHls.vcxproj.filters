@@ -66,6 +66,9 @@
     <ClInclude Include="httpflv\FLVClient.h">
       <Filter>httpflv</Filter>
     </ClInclude>
+    <ClInclude Include="RtspClient\Base64.h">
+      <Filter>RtspClient</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -112,6 +115,9 @@
     </ClCompile>
     <ClCompile Include="httpflv\FLVClient.cpp">
       <Filter>httpflv</Filter>
+    </ClCompile>
+    <ClCompile Include="RtspClient\Base64.cpp">
+      <Filter>RtspClient</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -4,6 +4,7 @@
 #include <WS2tcpip.h>
 #include <vector>
 #include "SdpParse.h"
+#include "Base64.h"
 
 #pragma warning(disable:4996)
 
@@ -348,6 +349,20 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 					{
 						FMTPField fmt;
 						sdp.ParseFmtp(fmt, fmtp);
+						auto base64Str = fmt.kv["sprop-parameter-sets"];
+						if (!base64Str.empty())
+						{
+							auto pos = base64Str.rfind(',');
+							auto base64Sps = base64Str.substr(0, pos);
+							auto base64Pps = base64Str.substr(pos + 1);
+
+							Base64 base64;
+							unsigned int rz;
+							auto sps = base64.base64Decode(base64Sps.c_str(), base64Sps.size(), rz);
+							auto pps = base64.base64Decode(base64Pps.c_str(), base64Pps.size(), rz);
+							delete[] sps;
+							delete[] pps;
+						}
 					}
 
 					hasVideo = true;

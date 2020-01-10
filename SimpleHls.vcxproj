@@ -169,6 +169,7 @@
     <ClInclude Include="M3U8Client.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RtspClient\Authenticator.h" />
+    <ClInclude Include="RtspClient\Base64.h" />
     <ClInclude Include="RtspClient\RtpUnpacket.h" />
     <ClInclude Include="RtspClient\RtspClient.h" />
     <ClInclude Include="RtspClient\SdpParse.h" />
@@ -190,6 +191,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="RtspClient\Authenticator.cpp" />
+    <ClCompile Include="RtspClient\Base64.cpp" />
     <ClCompile Include="RtspClient\RtpUnpacket.cpp" />
     <ClCompile Include="RtspClient\RtspClient.cpp" />
     <ClCompile Include="RtspClient\SdpParse.cpp" />
