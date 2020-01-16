@@ -27,9 +27,7 @@ struct FLVFramePacket
 {
 	std::basic_string<std::uint8_t> data;
 	std::string type;
-	std::function<std::basic_string<std::uint8_t>(void*)> VideoSeqFunc;
-	std::function<std::basic_string<std::uint8_t>(void*)> AudioSeqFunc;
-	std::function<std::basic_string<std::uint8_t>(void*)> MetaFunc;
+	std::function<std::basic_string<std::uint8_t>(void*)> GetCodecInfo;
 
 	void* arg;
 	FLVFramePacket() :arg(nullptr)
@@ -62,36 +60,33 @@ public:
 		m_cb = cb;
 		m_arg = arg;
 	}
+
 private:
-	std::basic_string<std::uint8_t> GenerateFLVTagHeader(FLV_TAG_TYPE t, unsigned int bodySize, unsigned int timeStamp);
+	std::basic_string<std::uint8_t> CodecInfo();
 
 	std::basic_string<std::uint8_t> videoSequenceTag();
 
-	std::basic_string<std::uint8_t> metaTag()
-	{
-		return m_meta;
-	}
-
-	std::basic_string<std::uint8_t> PackNalus(std::vector<std::basic_string<std::uint8_t>>& vn, bool iFrame);
-
-	std::basic_string<std::uint8_t> GenerateVideoFLVTag(std::vector<std::basic_string<std::uint8_t>>& nalus, unsigned int timeStamp, bool iFrame);
-
 	std::basic_string<std::uint8_t> audioSequenceTag();
-
-	std::basic_string<std::uint8_t> GenerateAudioFLVTag(const std::basic_string<std::uint8_t>& data, unsigned int timeStamp);
 
 	std::basic_string<std::uint8_t> onMeta(double width, double heigth, double frameRate);
 
-	void GetNalus(const std::basic_string<std::uint8_t>& data, std::vector<std::basic_string<std::uint8_t>>& vn);
+	void GetNalus(const std::basic_string<std::uint8_t>& data, std::vector<std::pair<size_t, size_t>>& vo);
+
+	unsigned char* FLVTagHead(unsigned char* in, FLV_TAG_TYPE t, size_t bodySize, size_t timeStamp);
+
+	unsigned char* PackNalus(unsigned char* in, const std::basic_string<std::uint8_t>& data, std::vector<std::pair<size_t, size_t>>& vo, bool iFrame);
 private:
 
 	std::basic_string<std::uint8_t> m_meta;
-	unsigned int pppss = 0;
-	unsigned int lastPts = 0;
+	unsigned int m_startVideoPts = 0;
+	unsigned int m_startAudioPts = 0;
 
-	std::basic_string<std::uint8_t> sps;
-	std::basic_string<std::uint8_t> pps;
+	std::basic_string<std::uint8_t> m_sps;
+	std::basic_string<std::uint8_t> m_pps;
 
 	FLVCallback m_cb;
 	void* m_arg;
+
+	unsigned int m_maxBufferSize;
+	unsigned char* m_buf;
 };

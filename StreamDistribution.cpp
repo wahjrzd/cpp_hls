@@ -239,17 +239,10 @@ unsigned StreamDistribution::wrapFlvcb(FLVFramePacket& f)
 	{
 		if (it->second->newClient)
 		{
-			auto aa = f.MetaFunc(f.arg);
-			auto bb = f.VideoSeqFunc(f.arg);
-			auto dd = f.AudioSeqFunc(f.arg);
-			std::basic_string<std::uint8_t> cc(FLV_FILE_HEADER, 13);// = FLV_FILE_HEADER;
-			cc.append(aa);
-			cc += bb;
-			cc += dd;
-			it->second->HasNewFLVTag(cc);
-
-			//fwrite(cc.c_str(), 1, cc.size(), pf);
+			auto data = f.GetCodecInfo(f.arg);
 			it->second->newClient = false;
+			
+			it->second->HasNewFLVTag(data);
 		}
 		it->second->HasNewFLVTag(f.data);
 

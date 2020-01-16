@@ -238,7 +238,8 @@ void RtspClient::SendRequest(const std::string cmd, const std::string& url, int 
 unsigned int RtspClient::WrapHandleData()
 {
 	fd_set rf;
-
+	int sz = 400 * 1024;
+	setsockopt(m_cli, SOL_SOCKET, SO_RCVBUF, (char*)&sz, sizeof(int));
 	while (true)
 	{
 		FD_ZERO(&rf);
@@ -556,7 +557,8 @@ unsigned int RtspClient::HandleRtpData()
 	{
 		return HandleCmdData(0);
 	}
-
+	if (fResponseBytesAlreadySeen >= 20000)
+		std::cout << "too much" << std::endl;
 	int nChannel = fResponseBuffer[1];
 	auto a = (unsigned char)fResponseBuffer[2];
 	auto b = (unsigned char)fResponseBuffer[3];
