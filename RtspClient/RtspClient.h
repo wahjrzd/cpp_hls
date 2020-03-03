@@ -5,6 +5,8 @@
 #include <future>
 #include "RtpUnpacket.h"
 
+class RTCPUnpacket;
+
 struct ResponseInfo
 {
 	std::string protocol;
@@ -37,9 +39,13 @@ private:
 	void parseWWWAuth(const std::string& str, std::string& _realm, std::string& _nonce);
 
 	unsigned int WrapHandleData();
+	unsigned WrapRTCPReport();
 
 	unsigned int HandleCmdData(int newBytesRead);
 	unsigned int HandleRtpData();
+
+	int PostRecv(WSABUF* buf, DWORD* flags);
+
 private:
 	std::string m_currentCmd;
 	std::string fBaseUrl;
@@ -64,8 +70,12 @@ private:
 	Authenticator fCurrentAuthenticator;
 
 	RtpUnpacket* rtp;
+	RTCPUnpacket* rtcp;
+	WSAOVERLAPPED overlapped;
+	HANDLE rtcpReportEvent;
 private:
 	SOCKET m_cli;
 	std::future<unsigned int> m_dataHandleFuture;
+	std::future<unsigned> m_rtcpFuture;
 };
 

@@ -18,8 +18,11 @@ RtpUnpacket::~RtpUnpacket()
 
 int RtpUnpacket::InputRtpData(unsigned char* data, unsigned short sz, const std::string& type)
 {
-	auto cc = (data[0] & 0x10);
-	auto mark = (data[1] & 0x80) >> 7;
+	auto v = (data[0] >> 6) & 0x03;
+	auto pad = (data[0] >> 5) & 0x01;
+	auto x = (data[0] >> 4) & 0x01;
+	auto cc = (data[0] & 0x0F);
+	auto mark = (data[1] >> 7) & 0x01;
 	auto pt = data[1] & 0x7f;
 
 	unsigned short seq = (data[2] << 8) | data[3];
@@ -28,6 +31,11 @@ int RtpUnpacket::InputRtpData(unsigned char* data, unsigned short sz, const std:
 
 	if (type == "video")
 	{
+		if (abs(seq - lastVideoSeq) == 65535)
+			videoCycleCount++;
+		lastVideoSeq = seq;
+		videoRtpPackets++;
+
 		if (m_videoCodec == "H264")
 			ParseAVCRTP(data + 12, sz - 12, timeStamp, mark == 0 ? false : true);
 		else if (_strcmpi(m_videoCodec.c_str(), "H265") == 0)
@@ -35,6 +43,11 @@ int RtpUnpacket::InputRtpData(unsigned char* data, unsigned short sz, const std:
 	}
 	else if (type == "audio")
 	{
+		if (abs(seq - lastAudioSeq) == 65535)
+			audioCycleCount++;
+		lastAudioSeq = seq;
+		audioRtpPackets++;
+
 		if (m_audioCodec == "PCMU" || m_audioCodec == "PCMA")
 			ParseG711RTP(data + 12, sz - 12, timeStamp, mark == 0 ? false : true);
 		else if (_strcmpi(m_audioCodec.c_str(), "MPEG4-GENERIC") == 0)
@@ -218,7 +231,7 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 			}
 		
 			ADTS[3] = (m_soundTrack == 2) ? 0x80 : 0x40;//soundtrack 1
-			int len = sz - 4 + 7;//2 字节au_length 紧跟后两字节high 13bit au Length 3bit 000
+			int len = sz - 4 + 7;
 			//                                     4     len 5      6 
 			ADTS[4] = (len & 0xfff8) >> 3;//00 1111 1111 111 1 1111 1111 1100
 			ADTS[5] = (len << 5) | 0x1F;//低三位
@@ -231,6 +244,7 @@ int RtpUnpacket::ParseAACRTP(unsigned char* data, unsigned short sz, unsigned in
 			ff.codecType = m_audioCodec;
 			ff.data.append(ADTS, 7);
 			ff.data.append(frameData.c_str() + 4, frameData.size() - 4);
+			auto yy = ff.data.c_str();
 			ff.timeStamp = timeStamp;
 			ff.samplingRate = m_audioSampleRate;
 			m_cb(ff, pUsr);

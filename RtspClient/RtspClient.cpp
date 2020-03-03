@@ -4,7 +4,8 @@
 #include <WS2tcpip.h>
 #include <vector>
 #include "SdpParse.h"
-#include "Base64.h"
+#include "RTCPUnpacket.h"
+#include  "Base64.h"
 
 #pragma warning(disable:4996)
 
@@ -20,12 +21,19 @@ sendAudioSetup(false)
 {
 	fUserAgent = "User-Agent: Simple RTSP Client\r\n";
 	rtp = new RtpUnpacket();
+	rtcp = new RTCPUnpacket(rtp);
+	ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
+	rtcpReportEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 }
 
 RtspClient::~RtspClient()
 {
+	SetEvent(rtcpReportEvent);
 	if (m_dataHandleFuture.valid())
 		m_dataHandleFuture.get();
+
+	if (m_rtcpFuture.valid())
+		m_rtcpFuture.get();
 
 	if (m_cli != INVALID_SOCKET)
 		closesocket(m_cli);
@@ -33,6 +41,8 @@ RtspClient::~RtspClient()
 	delete fResponseBuffer;
 
 	delete rtp;
+	delete rtcp;
+	CloseHandle(rtcpReportEvent);
 }
 
 bool RtspClient::OpenRtsp(const char* url)
@@ -237,9 +247,48 @@ void RtspClient::SendRequest(const std::string cmd, const std::string& url, int 
 
 unsigned int RtspClient::WrapHandleData()
 {
-	fd_set rf;
-	int sz = 400 * 1024;
-	setsockopt(m_cli, SOL_SOCKET, SO_RCVBUF, (char*)&sz, sizeof(int));
+	DWORD dwFlag = 0;
+	DWORD recvBytes;
+	WSABUF buf;
+	HANDLE he = WSACreateEvent();
+	overlapped.hEvent = he;
+	PostRecv(&buf, &dwFlag);
+
+	while (true)
+	{
+		WSAWaitForMultipleEvents(1, &he, TRUE, INFINITE, FALSE);
+		WSAResetEvent(he);
+		WSAGetOverlappedResult(m_cli, &overlapped, &recvBytes, FALSE, &dwFlag);
+		if (recvBytes == 0)
+		{
+			auto err = WSAGetLastError();
+			std::cout << " WSAGetOverlappedResult falied:" << err << std::endl;
+			break;
+		}
+
+		if (fResponseBuffer[0] != 0x24)
+		{
+			if (HandleCmdData(recvBytes) != 0)
+				break;
+		}
+		else
+		{
+			fResponseBytesAlreadySeen += recvBytes;
+			fResponseBufferBytesLeft -= recvBytes;
+
+			if (HandleRtpData() != 0)
+				break;
+		}
+
+		ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
+		overlapped.hEvent = he;
+		if (PostRecv(&buf, &dwFlag) != 0)
+			break;
+	}
+	WSACloseEvent(he);
+	return 0;
+
+	/*fd_set rf;
 	while (true)
 	{
 		FD_ZERO(&rf);
@@ -274,7 +323,7 @@ unsigned int RtspClient::WrapHandleData()
 			}
 		}
 	}
-	return 0;
+	return 0;*/
 }
 
 unsigned int RtspClient::HandleCmdData(int newBytesRead)
@@ -396,6 +445,24 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 			{
 				sessionID = resp.headers["Session"];
 			}
+			if (!resp.headers["Transport"].empty())//»ñÈ¡ssrc
+			{
+				std::stringstream ss(resp.headers["Transport"]);
+				std::string item;
+				while (std::getline(ss, item, ';'))
+				{
+					if (strnicmp(item.c_str(), "ssrc=", 5) == 0)
+					{
+						auto strSSRC = item.substr(5);
+						std::istringstream is(strSSRC);
+						if (hasVideo && sendVideoSetup && !sendAudioSetup)
+							is >> std::hex >> rtcp->videoRecvSSRC;
+						else
+							is >> std::hex >> rtcp->audioRecvSSRC;
+						break;
+					}
+				}
+			}
 
 			if (m_currentCmd == "DESCRIBE")
 			{
@@ -462,6 +529,10 @@ unsigned int RtspClient::HandleCmdData(int newBytesRead)
 					m_currentCmd = "PLAY";
 					SendRequest(m_currentCmd, fBaseUrl);
 				}
+			}
+			else if (m_currentCmd == "PLAY")
+			{
+				m_rtcpFuture = std::async(std::launch::async, &RtspClient::WrapRTCPReport, this);
 			}
 			else if (m_currentCmd == "TEARDOWN")
 				return 1;
@@ -557,8 +628,7 @@ unsigned int RtspClient::HandleRtpData()
 	{
 		return HandleCmdData(0);
 	}
-	if (fResponseBytesAlreadySeen >= 20000)
-		std::cout << "too much" << std::endl;
+
 	int nChannel = fResponseBuffer[1];
 	auto a = (unsigned char)fResponseBuffer[2];
 	auto b = (unsigned char)fResponseBuffer[3];
@@ -577,16 +647,18 @@ unsigned int RtspClient::HandleRtpData()
 	}
 	else if (nChannel == vRTCP)
 	{
-		//std::cout << "rtcp data" << std::endl;
+		unsigned char* p = (unsigned char*)fResponseBuffer + 4;
+		rtcp->InputRTCPData(p, sz, 0);
 	}
 	else if (nChannel == aRTP)
-	{
+	{ 
 		unsigned char* p = (unsigned char*)fResponseBuffer + 4;
 		rtp->InputRtpData(p, sz, "audio");
 	}
 	else if (nChannel == aRTCP)
 	{
-
+		unsigned char* p = (unsigned char*)fResponseBuffer + 4;
+		rtcp->InputRTCPData(p, sz, 1);
 	}
 	else
 		std::cout << "TODO" << std::endl;
@@ -609,6 +681,55 @@ unsigned int RtspClient::HandleRtpData()
 		fResponseBufferBytesLeft = 20000;
 	}
 
+	return 0;
+}
+
+int RtspClient::PostRecv(WSABUF* buf, DWORD* flags)
+{
+	DWORD recvBytes;
+	buf->buf = fResponseBuffer + fResponseBytesAlreadySeen;
+	buf->len = fResponseBufferBytesLeft;
+	int ret = WSARecv(m_cli, buf, 1, &recvBytes, flags, &overlapped, NULL);
+	if (ret == SOCKET_ERROR)
+	{
+		ret = WSAGetLastError();
+		if (ret != WSA_IO_PENDING)
+			return 1;
+	}
+	return 0;
+}
+
+unsigned RtspClient::WrapRTCPReport()
+{
+	DWORD dwRet;
+	unsigned char hd[] = { 0x24,0x01,0x00,0x00 };
+	while (true)
+	{
+		dwRet = WaitForSingleObject(rtcpReportEvent, 5 * 1000);
+		if (dwRet == WAIT_TIMEOUT)
+		{
+			if (sendVideoSetup)
+			{
+				auto s = rtcp->PackRR(0);
+				hd[1] = 0x01;
+				hd[2] = (s.size() >> 8) & 0xFF;
+				hd[3] = s.size() & 0xFF;
+				::send(m_cli, (char*)hd, 4, 0);
+				::send(m_cli, (char*)s.c_str(), s.size(), 0);
+			}
+			if (sendAudioSetup)
+			{
+				auto s = rtcp->PackRR(1);
+				hd[1] = 0x03;
+				hd[2] = (s.size() >> 8) & 0xFF;
+				hd[3] = s.size() & 0xFF;
+				::send(m_cli, (char*)hd, 4, 0);
+				::send(m_cli, (char*)s.c_str(), s.size(), 0);
+			}
+		}
+		else
+			break;
+	}
 	return 0;
 }
 

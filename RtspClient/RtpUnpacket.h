@@ -4,6 +4,7 @@
 //PCMU g711u
 //PCMA g711a
 //AAC MPEG4-Generic
+class RTCPUnpacket;
 
 struct FrameInfo
 {
@@ -67,6 +68,14 @@ private:
 
 	std::basic_string<unsigned char> frameData;
 	unsigned char naluType;
+private:
+	unsigned int videoRtpPackets = 0;//接收到的视频rtp包个数
+	unsigned int videoCycleCount = 1;//sequence number cycles count
+	unsigned int audioRtpPackets = 0;//接收到的音频rtp包个数
+	unsigned int audioCycleCount = 1;//sequence number cycles count
+	unsigned short lastVideoSeq = 0;
+	unsigned short lastAudioSeq = 0;
+	friend RTCPUnpacket;
 private:
 	void* pUsr;
 	RawCallback m_cb;
